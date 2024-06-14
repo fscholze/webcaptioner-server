@@ -1,0 +1,10 @@
+version: '3'
+services:
+  webcaptioner-ng-back:
+    image: webcaptioner-ng-back:latest
+    restart: unless-stopped
+    environment:
+        - WEBCAPTIONER_BACKEND_PORT
+        - SOTRA_SERVER_URL
+#    ports:
+#        - '80:4000'
