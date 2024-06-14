@@ -14,13 +14,12 @@ export const sendSubtitlesToYoutube = (
   params: YoutubeSubtitleParams,
   response: Response
 ) => {
+  console.log('youtube params:', params)
+
   const parsedDate = dayjs
     .utc(params.timestamp)
     .format('YYYY-MM-DDTHH:mm:ss.SSS')
-  const data = `${parsedDate} region:${params.region}\n${Buffer.from(
-    params.text,
-    'ascii'
-  ).toString('utf-8')}: ${params.seq}\n`
+  const data = `${parsedDate} region:${params.region}\n${params.text}: ${params.seq}\n`
 
   const config = {
     method: 'post',
