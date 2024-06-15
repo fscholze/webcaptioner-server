@@ -1,11 +1,13 @@
 import { Response } from 'express'
 import axios from 'axios'
+import { z } from 'zod'
 
-export type SotraParams = {
-  text: string
-  sourceLanguage: 'de' | 'hsb'
-  targetLanguage: 'de' | 'hsb'
-}
+export const SotraParamsSchema = z.object({
+  text: z.string(),
+  sourceLanguage: z.enum(['de', 'hsb']),
+  targetLanguage: z.enum(['de', 'hsb']),
+})
+type SotraParams = z.infer<typeof SotraParamsSchema>
 
 export const translateViaSotra = (params: SotraParams, response: Response) => {
   const data = JSON.stringify({

@@ -1,14 +1,16 @@
 import { Response } from 'express'
 import axios from 'axios'
 import dayjs from 'dayjs'
+import { z } from 'zod'
 
-export type YoutubeSubtitleParams = {
-  cid: string
-  seq: number
-  timestamp: string
-  region: string
-  text: string
-}
+export const YoutubeSubtitleParamsSchema = z.object({
+  cid: z.string().length(24),
+  seq: z.number().int(),
+  timestamp: z.string().datetime({ offset: true }),
+  region: z.string().max(10),
+  text: z.string(),
+})
+type YoutubeSubtitleParams = z.infer<typeof YoutubeSubtitleParamsSchema>
 
 export const sendSubtitlesToYoutube = (
   params: YoutubeSubtitleParams,
