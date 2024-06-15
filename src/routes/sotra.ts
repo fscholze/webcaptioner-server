@@ -1,7 +1,7 @@
 import { Response } from 'express'
 import axios from 'axios'
 
-type SotraParams = {
+export type SotraParams = {
   text: string
   sourceLanguage: 'de' | 'hsb'
   targetLanguage: 'de' | 'hsb'

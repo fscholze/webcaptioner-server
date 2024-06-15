@@ -2,8 +2,8 @@ import express, { Request, Response } from 'express'
 import dotenv from 'dotenv'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { sendSubtitlesToYoutube } from './routes/youtube'
-import { translateViaSotra } from './routes/sotra'
+import { YoutubeSubtitleParams, sendSubtitlesToYoutube } from './routes/youtube'
+import { SotraParams, translateViaSotra } from './routes/sotra'
 dayjs.extend(utc)
 const cors = require('cors')
 
@@ -20,15 +20,19 @@ app.get('/', (request: Request, response: Response) => {
   response.status(200).send('Hello World')
 })
 
-app.post('/youtube', (request: Request, response: Response) => {
-  // TODO: Check body type
-  return sendSubtitlesToYoutube(request.body, response)
-})
+app.post(
+  '/youtube',
+  (request: Request<{}, {}, YoutubeSubtitleParams>, response: Response) => {
+    return sendSubtitlesToYoutube(request.body, response)
+  }
+)
 
-app.post('/sotra', (request: Request, response: Response) => {
-  // TODO: Check body type
-  return translateViaSotra(request.body, response)
-})
+app.post(
+  '/sotra',
+  (request: Request<{}, {}, SotraParams>, response: Response) => {
+    return translateViaSotra(request.body, response)
+  }
+)
 
 app
   .listen(PORT, () => {

@@ -2,7 +2,7 @@ import { Response } from 'express'
 import axios from 'axios'
 import dayjs from 'dayjs'
 
-type YoutubeSubtitleParams = {
+export type YoutubeSubtitleParams = {
   cid: string
   seq: number
   timestamp: string
