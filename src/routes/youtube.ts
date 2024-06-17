@@ -16,8 +16,6 @@ export const sendSubtitlesToYoutube = (
   params: YoutubeSubtitleParams,
   response: Response
 ) => {
-  console.log('youtube params:', params)
-
   const parsedDate = dayjs
     .utc(params.timestamp)
     .format('YYYY-MM-DDTHH:mm:ss.SSS')

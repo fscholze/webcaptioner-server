@@ -16,7 +16,6 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
     target_language: params.targetLanguage,
   })
 
-  console.log(data)
   const config = {
     method: 'post',
     maxBodyLength: Infinity,

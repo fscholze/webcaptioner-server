@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express'
 import dotenv from 'dotenv'
+import expressWs from 'express-ws'
+import WebSocket from 'ws'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import {
@@ -13,7 +15,8 @@ const cors = require('cors')
 
 // configures dotenv to work in your application
 dotenv.config()
-const app = express()
+const { app } = expressWs(express())
+expressWs(app)
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -37,6 +40,27 @@ app.post(
   (request: Request, response: Response) =>
     translateViaSotra(request.body, response)
 )
+
+app.ws('/vosk', (ws, req) => {
+  console.log('Connecting ...')
+  const webSocket = new WebSocket('ws://localhost:2700')
+  webSocket.binaryType = 'arraybuffer'
+  webSocket.onerror = (error) => {
+    console.error('WebSocket error:')
+    ws.close()
+  }
+  webSocket.onmessage = (event) => ws.send(event.data)
+  webSocket.onopen = () => console.log('Connection to Websocket established 🚀')
+
+  ws.on('message', (message: string) => {
+    // console.log(`Received message from client: ${message}`)
+    webSocket.send(message)
+  })
+  ws.on('close', () => {
+    console.log('Disconnected from server')
+    webSocket.close()
+  })
+})
 
 app
   .listen(PORT, () => {
