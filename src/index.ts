@@ -43,7 +43,7 @@ app.post(
 
 app.ws('/vosk', (ws, req) => {
   console.log('Connecting ...')
-  const webSocket = new WebSocket('ws://localhost:2700')
+  const webSocket = new WebSocket(process.env.VOSK_SERVER_URL!)
   webSocket.binaryType = 'arraybuffer'
   webSocket.onerror = (error) => {
     console.error('WebSocket error:')
