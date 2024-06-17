@@ -19,7 +19,7 @@ export const sendSubtitlesToYoutube = (
   const parsedDate = dayjs
     .utc(params.timestamp)
     .format('YYYY-MM-DDTHH:mm:ss.SSS')
-  const data = `${parsedDate} region:${params.region}\n${params.text}: ${params.seq}\n`
+  const data = `${parsedDate} region:${params.region}\n${params.text}\n`
 
   const config = {
     method: 'post',
