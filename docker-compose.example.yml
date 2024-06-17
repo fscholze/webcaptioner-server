@@ -6,5 +6,6 @@ services:
     environment:
         - WEBCAPTIONER_BACKEND_PORT
         - SOTRA_SERVER_URL
+        - VOSK_SERVER_URL
 #    ports:
 #        - '80:4000'
