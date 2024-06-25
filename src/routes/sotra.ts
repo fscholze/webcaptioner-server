@@ -3,6 +3,7 @@ import axios from 'axios'
 import { z } from 'zod'
 
 export const SotraParamsSchema = z.object({
+  model: z.enum(['ctranslate', 'fairseq']),
   text: z.string(),
   sourceLanguage: z.enum(['de', 'hsb']),
   targetLanguage: z.enum(['de', 'hsb']),
@@ -19,7 +20,11 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
   const config = {
     method: 'post',
     maxBodyLength: Infinity,
-    url: `${process.env.SOTRA_SERVER_URL}/translate`,
+    url: `${
+      params.model === 'ctranslate'
+        ? process.env.SOTRA_SERVER_CTRANSALTE_URL
+        : process.env.SOTRA_SERVER_FAIRSEQ_URL
+    }/translate`,
     headers: {
       'Content-Type': 'application/json',
     },
