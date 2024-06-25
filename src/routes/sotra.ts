@@ -22,7 +22,7 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
     maxBodyLength: Infinity,
     url: `${
       params.model === 'ctranslate'
-        ? process.env.SOTRA_SERVER_CTRANSALTE_URL
+        ? process.env.SOTRA_SERVER_CTRANSLATE_URL
         : process.env.SOTRA_SERVER_FAIRSEQ_URL
     }/translate`,
     headers: {
