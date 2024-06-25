@@ -10,6 +10,11 @@ export const SotraParamsSchema = z.object({
 })
 type SotraParams = z.infer<typeof SotraParamsSchema>
 
+type SotraResponse = {
+  translation: string
+  model: string
+}
+
 export const translateViaSotra = (params: SotraParams, response: Response) => {
   const data = JSON.stringify({
     text: params.text,
@@ -34,7 +39,18 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
   return axios
     .request(config)
     .then((resp) => {
-      return response.status(200).send(JSON.stringify(resp.data))
+      let responseData: SotraResponse = {
+        translation: '',
+        model: resp.data.model,
+      }
+
+      if (params.model === 'ctranslate') {
+        responseData.translation = resp.data.marked_translation.join(' ')
+      } else {
+        responseData.translation = resp.data.translation
+      }
+
+      return response.status(200).send(JSON.stringify(responseData))
     })
     .catch((error) => {
       console.log(error)
