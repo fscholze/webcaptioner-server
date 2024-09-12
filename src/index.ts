@@ -54,7 +54,7 @@ app.ws('/vosk', (ws, req) => {
 
   ws.on('message', (message: string) => {
     // console.log(`Received message from client: ${message}`)
-    if (webSocket.OPEN) webSocket.send(message)
+    if (webSocket.readyState === webSocket.OPEN) webSocket.send(message)
   })
   ws.on('close', () => {
     console.log('Disconnected from server')
