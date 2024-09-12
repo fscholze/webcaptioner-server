@@ -45,16 +45,16 @@ app.ws('/vosk', (ws, req) => {
   console.log('Connecting ...')
   const webSocket = new WebSocket(process.env.VOSK_SERVER_URL!)
   webSocket.binaryType = 'arraybuffer'
-  webSocket.onerror = (error) => {
+  webSocket.onerror = error => {
     console.error('WebSocket error:')
     ws.close()
   }
-  webSocket.onmessage = (event) => ws.send(event.data)
+  webSocket.onmessage = event => ws.send(event.data)
   webSocket.onopen = () => console.log('Connection to Websocket established 🚀')
 
   ws.on('message', (message: string) => {
     // console.log(`Received message from client: ${message}`)
-    webSocket.send(message)
+    if (webSocket.OPEN) webSocket.send(message)
   })
   ws.on('close', () => {
     console.log('Disconnected from server')
@@ -66,7 +66,7 @@ app
   .listen(PORT, () => {
     console.log('Server running at PORT: ', PORT)
   })
-  .on('error', (error) => {
+  .on('error', error => {
     // gracefully handle error
     throw new Error(error.message)
   })
