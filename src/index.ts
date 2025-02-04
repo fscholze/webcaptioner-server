@@ -58,7 +58,18 @@ app.ws('/vosk', (ws, req) => {
   ws.on('message', (message: string) => {
     // console.log(`Received message from client: ${message}`)
     // eof('{"timestamp" : 1}') utf
-    if (webSocket.readyState === webSocket.OPEN) webSocket.send(message)
+    if (webSocket.readyState === webSocket.OPEN) {
+      if (message.length === 13) {
+        const time = parseInt(message, 10)
+        const timeStatus = `seconds=${Math.trunc(time / 1000)},milli=${
+          time - Math.trunc(time / 1000) * 1000
+        }`
+
+        webSocket.send(timeStatus)
+      } else {
+        webSocket.send(message)
+      }
+    }
   })
   ws.on('close', () => {
     console.log('Disconnected from server')
