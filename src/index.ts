@@ -10,6 +10,7 @@ import {
 } from './routes/youtube'
 import { SotraParamsSchema, translateViaSotra } from './routes/sotra'
 import { validateData } from './middleware/data-validation'
+import { connectDB } from './db'
 dayjs.extend(utc)
 const cors = require('cors')
 
@@ -20,6 +21,8 @@ expressWs(app)
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+connectDB()
 
 const PORT = process.env.PORT
 
@@ -46,7 +49,7 @@ app.ws('/vosk', (ws, req) => {
   const webSocket = new WebSocket(process.env.VOSK_SERVER_URL!)
   webSocket.binaryType = 'arraybuffer'
   webSocket.onerror = error => {
-    console.error('WebSocket error:')
+    console.error('WebSocket error:', error.message)
     ws.close()
   }
   webSocket.onmessage = event => ws.send(event.data)
@@ -54,6 +57,7 @@ app.ws('/vosk', (ws, req) => {
 
   ws.on('message', (message: string) => {
     // console.log(`Received message from client: ${message}`)
+    // eof('{"timestamp" : 1}') utf
     if (webSocket.readyState === webSocket.OPEN) webSocket.send(message)
   })
   ws.on('close', () => {

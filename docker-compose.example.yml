@@ -8,5 +8,7 @@ services:
       - SOTRA_SERVER_CTRANSLATE_URL
       - SOTRA_SERVER_FAIRSEQ_URL
       - VOSK_SERVER_URL
+      - MONGODB_URI
+      - JWT_SECRET_KEY
 #    ports:
 #        - '80:4000'
