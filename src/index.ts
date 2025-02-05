@@ -22,7 +22,8 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-connectDB()
+// temporarily disabled
+// connectDB()
 
 const PORT = process.env.PORT
 
