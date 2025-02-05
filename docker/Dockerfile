@@ -6,7 +6,7 @@ MAINTAINER Daniel Sobe <daniel.sobe@sorben.com>
 
 RUN mkdir -p /webcaptioner-ng-back/src
 
-COPY package.json package-lock.json tsconfig.json /webcaptioner-ng-back
+COPY package.json package-lock.json tsconfig.json /webcaptioner-ng-back/
 COPY src    /webcaptioner-ng-back/src
 
 RUN cd webcaptioner-ng-back && npm install
