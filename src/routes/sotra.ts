@@ -38,7 +38,7 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
 
   return axios
     .request(config)
-    .then((resp) => {
+    .then(resp => {
       let responseData: SotraResponse = {
         translation: '',
         model: resp.data.model,
@@ -52,8 +52,8 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
 
       return response.status(200).send(JSON.stringify(responseData))
     })
-    .catch((error) => {
-      console.log(error)
+    .catch(error => {
+      console.error('Sotra error: ', error.message)
       return response.status(400).send(error.response?.data ?? 'Error')
     })
 }

@@ -10,5 +10,6 @@ services:
       - VOSK_SERVER_URL
       - MONGODB_URI
       - JWT_SECRET_KEY
+      - FREE_PASSWORD
 #    ports:
 #        - '80:4000'

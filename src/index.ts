@@ -11,6 +11,8 @@ import {
 import { SotraParamsSchema, translateViaSotra } from './routes/sotra'
 import { validateData } from './middleware/data-validation'
 import { connectDB } from './db'
+import { login, loginFree, register } from './controllers/auth'
+import { createAudioRecord, getAudioRecords, getMe } from './controllers/user'
 dayjs.extend(utc)
 const cors = require('cors')
 
@@ -22,8 +24,7 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// temporarily disabled
-// connectDB()
+connectDB()
 
 const PORT = process.env.PORT
 
@@ -77,6 +78,20 @@ app.ws('/vosk', (ws, req) => {
     webSocket.close()
   })
 })
+
+app.post('/auth/register', register)
+
+app.post('/auth/login', login)
+
+app.post('/auth/loginFree', loginFree)
+
+app.get('/auth/me', getMe)
+
+app.get('/users/audioRecords', getAudioRecords)
+
+app.post('/users/audioRecords', createAudioRecord)
+
+// app.put('/users/audioRecords/:id', updateAudioRecord)
 
 app
   .listen(PORT, () => {
