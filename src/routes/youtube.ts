@@ -40,6 +40,7 @@ export const sendSubtitlesToYoutube = (
     })
     .catch((error) => {
       console.info("Youtube ERROR", error.message ?? error)
+      console.info("Error details:", error.response?.data ?? 'Error')
       return response.status(400).send(error.response?.data ?? 'Error')
     })
 }
