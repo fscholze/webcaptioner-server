@@ -35,9 +35,12 @@ export const sendSubtitlesToYoutube = (
   return axios
     .request(config)
     .then((resp) => {
+      console.info("Youtube OK", resp.data)
       return response.status(200).send(JSON.stringify(resp.data))
     })
     .catch((error) => {
+      console.info("Youtube ERROR", error.message ?? error)
+      console.info("Error details:", error.response?.data ?? 'Error')
       return response.status(400).send(error.response?.data ?? 'Error')
     })
 }
