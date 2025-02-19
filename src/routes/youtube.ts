@@ -31,13 +31,13 @@ export const sendSubtitlesToYoutube = (
     data: data,
   }
 
-  console.info(config)
   return axios
     .request(config)
-    .then((resp) => {
-      return response.status(200).send(JSON.stringify(resp.data))
+    .then(resp => {
+      return response.status(200).send(resp.data.trim('/n'))
     })
-    .catch((error) => {
+    .catch(error => {
+      console.error(error)
       return response.status(400).send(error.response?.data ?? 'Error')
     })
 }
