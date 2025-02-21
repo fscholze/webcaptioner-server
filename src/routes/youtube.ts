@@ -31,6 +31,7 @@ export const sendSubtitlesToYoutube = (
     data: data,
   }
 
+  console.info(config)
   return axios
     .request(config)
     .then((resp) => {
