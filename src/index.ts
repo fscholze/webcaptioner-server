@@ -13,6 +13,8 @@ import { validateData } from './middleware/data-validation'
 import { connectDB } from './db'
 import { login, loginFree, register } from './controllers/auth'
 import { createAudioRecord, getAudioRecords, getMe } from './controllers/user'
+import { User, UserRole } from './models/user'
+import { hashPassword, isUser } from './helper/auth'
 dayjs.extend(utc)
 const cors = require('cors')
 
@@ -24,7 +26,18 @@ app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-connectDB()
+connectDB().then(async () => {
+  const user = await User.findOne({ email: 'd.soba@serbja.de' })
+  if (user) return
+
+  const adminUser = await User.create({
+    firstname: 'Daniel',
+    lastname: 'Soba',
+    email: 'd.soba@serbja.de',
+    password: await hashPassword('tajne'),
+  })
+  await User.findByIdAndUpdate(adminUser._id, { role: UserRole.ADMIN })
+})
 
 const PORT = process.env.PORT
 

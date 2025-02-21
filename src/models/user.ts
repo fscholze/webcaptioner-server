@@ -1,12 +1,17 @@
 import { Schema, model } from 'mongoose'
 import { IAudioRecord } from './audio-record'
 
+export enum UserRole {
+  'USER' = 'USER',
+  'ADMIN' = 'ADMIN',
+}
+
 export interface IUser {
   firstname: string
   lastname: string
   email: string
   password: string
-  role: 'USER' | 'ADMIN'
+  role: UserRole
   audioRecords: IAudioRecord[]
 }
 
@@ -39,8 +44,8 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['USER', 'ADMIN'],
-      default: 'USER',
+      enum: Object.values(UserRole),
+      default: UserRole.USER,
     },
     audioRecords: [
       {
