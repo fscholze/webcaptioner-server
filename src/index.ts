@@ -15,6 +15,11 @@ import { login, loginFree, register } from './controllers/auth'
 import { createAudioRecord, getAudioRecords, getMe } from './controllers/user'
 import { User, UserRole } from './models/user'
 import { hashPassword, isUser } from './helper/auth'
+import {
+  BamborakParamsSchema,
+  getAudioFromText,
+  getSpeakers,
+} from './routes/bamborak'
 dayjs.extend(utc)
 const cors = require('cors')
 
@@ -58,6 +63,14 @@ app.post(
   (request: Request, response: Response) =>
     translateViaSotra(request.body, response)
 )
+
+app.post('/bamborak', validateData(BamborakParamsSchema), (request, response) =>
+  getAudioFromText(request.body, response)
+)
+
+app.get('/bamborak-speakers', (_: Request, response: Response) => {
+  getSpeakers(response)
+})
 
 app.ws('/vosk', (ws, req) => {
   console.log('Connecting ...')
