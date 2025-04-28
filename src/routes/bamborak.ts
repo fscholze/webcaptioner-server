@@ -16,7 +16,7 @@ export const getAudioFromText = (
   const config: AxiosRequestConfig = {
     method: 'post',
     maxBodyLength: Infinity,
-    url: `${process.env.BAMORAK_SERVER}/api/tts/`,
+    url: `${process.env.BAMBORAK_SERVER}/api/tts/`,
     headers: {
       'Content-Type': 'application/json',
     },
@@ -39,7 +39,7 @@ export const getAudioFromText = (
 
 export const getSpeakers = (response: Response) => {
   return axios
-    .get(`${process.env.BAMORAK_SERVER}/api/fetch_speakers/`)
+    .get(`${process.env.BAMBORAK_SERVER}/api/fetch_speakers/`)
     .then(resp => {
       return response.status(200).send(resp.data)
     })
