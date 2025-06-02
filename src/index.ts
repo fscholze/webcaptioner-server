@@ -12,14 +12,17 @@ import { SotraParamsSchema, translateViaSotra } from './routes/sotra'
 import { validateData } from './middleware/data-validation'
 import { connectDB } from './db'
 import { login, loginFree, register } from './controllers/auth'
-import { createAudioRecord, getAudioRecords, getMe } from './controllers/user'
+import { getMe } from './controllers/user'
+import { createAudioRecord, getAudioRecords } from './controllers/audio-record'
 import { User, UserRole } from './models/user'
-import { hashPassword, isUser } from './helper/auth'
+import { hashPassword, isUser, verifyToken } from './helper/auth'
 import {
   BamborakParamsSchema,
   getAudioFromText,
   getSpeakers,
 } from './routes/bamborak'
+import { AudioRecord } from './models/audio-record'
+import { getAudioCast } from './controllers/audio-record'
 dayjs.extend(utc)
 const cors = require('cors')
 
@@ -72,20 +75,60 @@ app.get('/bamborak-speakers', (_: Request, response: Response) => {
   getSpeakers(response)
 })
 
-app.ws('/vosk', (ws, req) => {
+app.ws('/vosk', async (ws, req) => {
   console.log('Connecting ...')
   const webSocket = new WebSocket(process.env.VOSK_SERVER_URL!)
   webSocket.binaryType = 'arraybuffer'
+  const recordId = req.query.recordId as string
+
+  // // Get authorization token from query params
+  // const token = req.query.token as string
+  // if (!token) {
+  //   ws.close()
+  //   return
+  // }
+
+  // // Verify token and get user ID
+  // const verifiedToken = verifyToken(token)
+  // if (!verifiedToken?.id) {
+  //   ws.close()
+  //   return
+  // }
+
   webSocket.onerror = error => {
     console.error('WebSocket error:', error.message)
     ws.close()
   }
-  webSocket.onmessage = event => ws.send(event.data)
+
+  webSocket.onmessage = async event => {
+    ws.send(event.data)
+
+    // Parse the message and save to audio record if it's a transcription
+    try {
+      const data = JSON.parse(event.data.toString())
+      if (data.text) {
+        if (
+          data.text &&
+          data.text !== '-- ***/whisper/ggml-model.q8_0.bin --' &&
+          data.text !== '-- **/whisper/ggml-model.q8_0.bin --' &&
+          data.text !== '-- */whisper/ggml-model.q8_0.bin --'
+        ) {
+          const trimmedText = data.text.slice(2, -2).trim()
+          if (trimmedText.length <= 0) return
+
+          await AudioRecord.findByIdAndUpdate(recordId, {
+            $push: { originalText: trimmedText },
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error saving transcription:', error)
+    }
+  }
+
   webSocket.onopen = () => console.log('Connection to Websocket established 🚀')
 
   ws.on('message', (message: string) => {
-    // console.log(`Received message from client: ${message}`)
-    // eof('{"timestamp" : 1}') utf
     if (webSocket.readyState === webSocket.OPEN) {
       if (message.length === 13) {
         const time = parseInt(message, 10)
@@ -99,6 +142,7 @@ app.ws('/vosk', (ws, req) => {
       }
     }
   })
+
   ws.on('close', () => {
     console.log('Disconnected from server')
     webSocket.close()
@@ -116,6 +160,8 @@ app.get('/auth/me', getMe)
 app.get('/users/audioRecords', getAudioRecords)
 
 app.post('/users/audioRecords', createAudioRecord)
+
+app.get('/casts/:token', getAudioCast)
 
 // app.put('/users/audioRecords/:id', updateAudioRecord)
 

@@ -1,12 +1,14 @@
 import { Response } from 'express'
 import axios from 'axios'
 import { z } from 'zod'
+import { AudioRecord } from '../models/audio-record'
 
 export const SotraParamsSchema = z.object({
   model: z.enum(['ctranslate', 'fairseq']),
   text: z.string(),
   sourceLanguage: z.enum(['de', 'hsb']),
   targetLanguage: z.enum(['de', 'hsb']),
+  audioRecordId: z.string().optional(),
 })
 type SotraParams = z.infer<typeof SotraParamsSchema>
 
@@ -20,6 +22,7 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
     text: params.text,
     source_language: params.sourceLanguage,
     target_language: params.targetLanguage,
+    audio_record_id: params.audioRecordId,
   })
 
   const config = {
@@ -38,7 +41,7 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
 
   return axios
     .request(config)
-    .then(resp => {
+    .then(async resp => {
       let responseData: SotraResponse = {
         translation: '',
         model: resp.data.model,
@@ -48,6 +51,12 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
         responseData.translation = resp.data.marked_translation.join(' ')
       } else {
         responseData.translation = resp.data.translation
+      }
+
+      if (params.audioRecordId) {
+        await AudioRecord.findByIdAndUpdate(params.audioRecordId, {
+          $push: { translatedText: responseData.translation },
+        })
       }
 
       return response.status(200).send(JSON.stringify(responseData))
