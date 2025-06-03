@@ -149,6 +149,29 @@ app.ws('/vosk', async (ws, req) => {
   })
 })
 
+// In-memory pub/sub for translation events
+export const translationSubscribers: { [recordId: string]: Set<any> } = {}
+
+// WebSocket endpoint for translation updates
+app.ws('/translations', (ws, req) => {
+  const recordId = req.query.recordId as string
+  if (!recordId) {
+    ws.close()
+    return
+  }
+  if (!translationSubscribers[recordId]) {
+    translationSubscribers[recordId] = new Set()
+  }
+  translationSubscribers[recordId].add(ws)
+
+  ws.on('close', () => {
+    translationSubscribers[recordId].delete(ws)
+    if (translationSubscribers[recordId].size === 0) {
+      delete translationSubscribers[recordId]
+    }
+  })
+})
+
 app.post('/auth/register', register)
 
 app.post('/auth/login', login)

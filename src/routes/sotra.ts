@@ -2,6 +2,7 @@ import { Response } from 'express'
 import axios from 'axios'
 import { z } from 'zod'
 import { AudioRecord } from '../models/audio-record'
+import { translationSubscribers } from '../index'
 
 export const SotraParamsSchema = z.object({
   model: z.enum(['ctranslate', 'fairseq']),
@@ -57,6 +58,19 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
         await AudioRecord.findByIdAndUpdate(params.audioRecordId, {
           $push: { translatedText: responseData.translation },
         })
+        // Notify websocket subscribers
+        if (translationSubscribers[params.audioRecordId]) {
+          for (const ws of translationSubscribers[params.audioRecordId]) {
+            if (ws.readyState === ws.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  original: params.text,
+                  translation: responseData.translation,
+                })
+              )
+            }
+          }
+        }
       }
 
       return response.status(200).send(JSON.stringify(responseData))
