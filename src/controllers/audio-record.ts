@@ -76,6 +76,33 @@ export const createAudioRecord = async (req: Request, res: Response) => {
   }
 }
 
+export const updateAudioRecord = async (req: Request, res: Response) => {
+  const { authorization } = req.headers
+  const { recordId } = req.params
+  const { speakerId } = req.body as { speakerId: number }
+
+  if (!authorization) return res.status(403).json({ message: 'Invalid token' })
+  if (!speakerId) return res.status(400).json({ message: 'Missing params' })
+
+  const verifiedToken = verifyToken(authorization as string)
+
+  if (verifiedToken?.id) {
+    const audioRecord = await AudioRecord.findOneAndUpdate(
+      {
+        _id: recordId,
+        owner: verifiedToken.id,
+      },
+      { speakerId }
+    ).exec()
+
+    if (!audioRecord)
+      return res.status(400).json({ message: 'No Record found' })
+
+    return res.send(audioRecord)
+  }
+  res.status(403).json({ message: 'Invalid token' })
+}
+
 // export const updateAudioRecord = async (req: Request, res: Response) => {
 //   const { authorization } = req.headers
 //   const { recordId } = req.params

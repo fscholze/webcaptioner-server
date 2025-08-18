@@ -13,7 +13,11 @@ import { validateData } from './middleware/data-validation'
 import { connectDB } from './db'
 import { login, loginFree, register } from './controllers/auth'
 import { getMe } from './controllers/user'
-import { createAudioRecord, getAudioRecords } from './controllers/audio-record'
+import {
+  createAudioRecord,
+  getAudioRecords,
+  updateAudioRecord,
+} from './controllers/audio-record'
 import { User, UserRole } from './models/user'
 import { hashPassword, isUser, verifyToken } from './helper/auth'
 import {
@@ -184,9 +188,9 @@ app.get('/users/audioRecords', getAudioRecords)
 
 app.post('/users/audioRecords', createAudioRecord)
 
-app.get('/casts/:token', getAudioCast)
+app.put('/users/audioRecords/:id', updateAudioRecord)
 
-// app.put('/users/audioRecords/:id', updateAudioRecord)
+app.get('/casts/:token', getAudioCast)
 
 app
   .listen(PORT, () => {
