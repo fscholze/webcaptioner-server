@@ -17,7 +17,7 @@ export interface IAudioRecord {
   translatedText: string[]
   owner: IUser
   token: string
-  speakerId: number | null
+  speakerId: string | null
 }
 
 const audioRecordSchema = new Schema<IAudioRecord>(
@@ -45,7 +45,7 @@ const audioRecordSchema = new Schema<IAudioRecord>(
       default: generateToken,
     },
     speakerId: {
-      type: Number,
+      type: String,
       default: null,
     },
   },
