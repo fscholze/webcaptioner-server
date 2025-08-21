@@ -85,7 +85,7 @@ export const updateAudioRecord = async (req: Request, res: Response) => {
   if (!speakerId) return res.status(400).json({ message: 'Missing params' })
 
   // const verifiedToken = verifyToken(authorization as string)
-  console.log({ recordId, speakerId, params: req.params })
+
   if (recordId) {
     const audioRecord = await AudioRecord.findOneAndUpdate(
       {
