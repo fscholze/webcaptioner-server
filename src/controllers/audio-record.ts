@@ -41,9 +41,10 @@ export const getAudioCast = async (req: Request, res: Response) => {
 
 export const createAudioRecord = async (req: Request, res: Response) => {
   const { authorization } = req.headers
-  const { originalText, translatedText } = req.body as {
+  const { originalText, translatedText, speakerId } = req.body as {
     originalText: string[]
     translatedText: string[]
+    speakerId: string | null
   }
 
   if (authorization) {
@@ -69,6 +70,7 @@ export const createAudioRecord = async (req: Request, res: Response) => {
       title: dayjs().format('YYYY-MM-DD HH:mm'),
       originalText,
       translatedText,
+      speakerId,
     })
 
     return res.status(203).send(audioRecord)
