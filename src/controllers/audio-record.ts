@@ -84,7 +84,7 @@ export const updateAudioRecord = async (req: Request, res: Response) => {
   const { speakerId } = req.body as { speakerId: string | null }
 
   // if (!authorization) return res.status(403).json({ message: 'Invalid token' })
-  if (!speakerId) return res.status(400).json({ message: 'Missing params' })
+  // if (!speakerId) return res.status(400).json({ message: 'Missing params' })
 
   // const verifiedToken = verifyToken(authorization as string)
 
