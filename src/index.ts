@@ -15,6 +15,7 @@ import { login, loginFree, register } from './controllers/auth'
 import { getMe } from './controllers/user'
 import {
   createAudioRecord,
+  deleteAudioRecord,
   getAudioRecords,
   updateAudioRecord,
 } from './controllers/audio-record'
@@ -61,18 +62,18 @@ app.post(
   '/youtube',
   validateData(YoutubeSubtitleParamsSchema),
   (request: Request, response: Response) =>
-    sendSubtitlesToYoutube(request.body, response)
+    sendSubtitlesToYoutube(request.body, response),
 )
 
 app.post(
   '/sotra',
   validateData(SotraParamsSchema),
   (request: Request, response: Response) =>
-    translateViaSotra(request.body, response)
+    translateViaSotra(request.body, response),
 )
 
 app.post('/bamborak', validateData(BamborakParamsSchema), (request, response) =>
-  getAudioFromText(request.body, response)
+  getAudioFromText(request.body, response),
 )
 
 app.get('/bamborak-speakers', (_: Request, response: Response) => {
@@ -189,6 +190,8 @@ app.get('/users/audioRecords', getAudioRecords)
 app.post('/users/audioRecords', createAudioRecord)
 
 app.put('/users/audioRecords/:id', updateAudioRecord)
+
+app.delete('/users/audioRecords/:id', deleteAudioRecord)
 
 app.get('/casts/:token', getAudioCast)
 

@@ -93,7 +93,7 @@ export const updateAudioRecord = async (req: Request, res: Response) => {
       {
         _id: recordId,
       },
-      { speakerId }
+      { speakerId },
     ).exec()
     if (!audioRecord)
       return res.status(400).json({ message: 'No Record found' })
@@ -115,6 +115,31 @@ export const updateAudioRecord = async (req: Request, res: Response) => {
   //   return res.send(audioRecord)
   // }
   res.status(403).json({ message: 'Invalid token' })
+}
+
+export const deleteAudioRecord = async (req: Request, res: Response) => {
+  const { authorization } = req.headers
+  const { id: recordId } = req.params
+
+  if (!authorization) return res.status(403).json({ message: 'Invalid token' })
+  if (!recordId) return res.status(400).json({ message: 'Missing id' })
+
+  const verifiedToken = verifyToken(authorization as string)
+  if (!verifiedToken?.id)
+    return res.status(403).json({ message: 'Invalid token' })
+
+  const deleted = await AudioRecord.findOneAndDelete({
+    _id: recordId,
+    owner: verifiedToken.id,
+  }).exec()
+
+  if (!deleted) return res.status(404).json({ message: 'No Record found' })
+
+  await User.findByIdAndUpdate(verifiedToken.id, {
+    $pull: { audioRecords: recordId },
+  }).exec()
+
+  return res.status(204).send()
 }
 
 // export const updateAudioRecord = async (req: Request, res: Response) => {
