@@ -8,17 +8,50 @@ import dayjs from 'dayjs'
 export const getAudioRecords = async (req: Request, res: Response) => {
   const { authorization } = req.headers
 
+  const parsePositiveInt = (value: unknown): number | undefined => {
+    if (value === undefined || value === null) return undefined
+    if (Array.isArray(value)) return parsePositiveInt(value[0])
+    const parsed = Number.parseInt(String(value), 10)
+    if (Number.isNaN(parsed)) return undefined
+    return parsed
+  }
+
   if (!authorization) return res.status(403).json({ message: 'Invalid token' })
 
   const verifiedToken = verifyToken(authorization as string)
 
   if (verifiedToken?.id) {
-    const audioRecords = await AudioRecord.find({
-      owner: verifiedToken.id,
-    }).exec()
+    const pageRaw = parsePositiveInt(req.query.page)
+    const limitRaw = parsePositiveInt(req.query.limit)
 
-    if (!audioRecords) return res.status(403).json({ message: 'Invalid token' })
-    return res.send(audioRecords)
+    const hasPagination = pageRaw !== undefined || limitRaw !== undefined
+    const page = Math.max(0, pageRaw ?? 0)
+    const limit = Math.min(100, Math.max(1, limitRaw ?? 25))
+
+    const baseQuery = {
+      owner: verifiedToken.id,
+    }
+
+    if (!hasPagination) {
+      const audioRecords = await AudioRecord.find(baseQuery)
+        .sort({ createdAt: -1, _id: -1 })
+        .exec()
+
+      if (!audioRecords)
+        return res.status(403).json({ message: 'Invalid token' })
+      return res.send(audioRecords)
+    }
+
+    const [items, total] = await Promise.all([
+      AudioRecord.find(baseQuery)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(page * limit)
+        .limit(limit)
+        .exec(),
+      AudioRecord.countDocuments(baseQuery).exec(),
+    ])
+
+    return res.send({ items, total, page, limit })
   }
   res.status(403).json({ message: 'Invalid token' })
 }
@@ -47,18 +80,19 @@ export const createAudioRecord = async (req: Request, res: Response) => {
     speakerId: string | null
   }
 
-  if (authorization) {
-    if (!originalText || !translatedText)
-      return res.status(400).json({ message: 'Missing params' })
+  const safeOriginalText = Array.isArray(originalText) ? originalText : []
+  const safeTranslatedText = Array.isArray(translatedText) ? translatedText : []
 
+  if (authorization) {
     const verifiedToken = verifyToken(authorization as string)
 
     if (verifiedToken?.id) {
       const audioRecord = await AudioRecord.create({
         title: dayjs().format('YYYY-MM-DD HH:mm'),
-        originalText,
-        translatedText,
+        originalText: safeOriginalText,
+        translatedText: safeTranslatedText,
         owner: verifiedToken.id,
+        speakerId,
       })
 
       return res.status(203).send(audioRecord)
@@ -68,13 +102,12 @@ export const createAudioRecord = async (req: Request, res: Response) => {
   } else {
     const audioRecord = await AudioRecord.create({
       title: dayjs().format('YYYY-MM-DD HH:mm'),
-      originalText,
-      translatedText,
+      originalText: safeOriginalText,
+      translatedText: safeTranslatedText,
       speakerId,
     })
 
     return res.status(203).send(audioRecord)
-    return res.status(403).json({ message: 'Invalid token' })
   }
 }
 
