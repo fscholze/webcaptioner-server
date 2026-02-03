@@ -122,11 +122,15 @@ export const updateAudioRecord = async (req: Request, res: Response) => {
   // const verifiedToken = verifyToken(authorization as string)
 
   if (recordId) {
+    if (speakerId === undefined)
+      return res.status(400).json({ message: 'Missing speakerId' })
+
     const audioRecord = await AudioRecord.findOneAndUpdate(
       {
         _id: recordId,
       },
-      { speakerId },
+      { $set: { speakerId } },
+      { new: true, runValidators: true },
     ).exec()
     if (!audioRecord)
       return res.status(400).json({ message: 'No Record found' })
