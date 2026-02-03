@@ -40,14 +40,14 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 connectDB().then(async () => {
-  const user = await User.findOne({ email: 'd.soba@serbja.de' })
+  const user = await User.findOne({ email: process.env.DB_ADMIN_EMAIL })
   if (user) return
 
   const adminUser = await User.create({
-    firstname: 'Daniel',
-    lastname: 'Soba',
-    email: 'd.soba@serbja.de',
-    password: await hashPassword('tajne'),
+    firstname: process.env.DB_ADMIN_FIRSTNAME,
+    lastname: process.env.DB_ADMIN_LASTNAME,
+    email: process.env.DB_ADMIN_EMAIL,
+    password: await hashPassword(process.env.DB_ADMIN_PASSWORD!),
   })
   await User.findByIdAndUpdate(adminUser._id, { role: UserRole.ADMIN })
 })

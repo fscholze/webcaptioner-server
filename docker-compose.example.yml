@@ -11,5 +11,9 @@ services:
       - MONGODB_URI
       - JWT_SECRET_KEY
       - FREE_PASSWORD
+      - DB_ADMIN_FIRSTNAME
+      - DB_ADMIN_LASTNAME
+      - DB_ADMIN_EMAIL
+      - DB_ADMIN_PASSWORD
 #    ports:
 #        - '80:4000'
