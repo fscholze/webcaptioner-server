@@ -1,8 +1,7 @@
 import { User } from '../models/user'
 import { Request, Response } from 'express'
 import { verifyToken } from '../helper/auth'
-import { AudioRecord } from '../models/audio-record'
-import { record } from 'zod'
+import { AudioRecord, AudioText, InputWord } from '../models/audio-record'
 import dayjs from 'dayjs'
 
 export const getAudioRecords = async (req: Request, res: Response) => {
@@ -74,14 +73,54 @@ export const getAudioCast = async (req: Request, res: Response) => {
 
 export const createAudioRecord = async (req: Request, res: Response) => {
   const { authorization } = req.headers
+
   const { originalText, translatedText, speakerId } = req.body as {
-    originalText: string[]
-    translatedText: string[]
+    originalText?: unknown
+    translatedText?: unknown
     speakerId: string | null
   }
 
-  const safeOriginalText = Array.isArray(originalText) ? originalText : []
-  const safeTranslatedText = Array.isArray(translatedText) ? translatedText : []
+  const isInputWord = (value: unknown): value is InputWord => {
+    if (!value || typeof value !== 'object') return false
+    const v = value as Record<string, unknown>
+    if (typeof v.word !== 'string') return false
+    if (typeof v.conf !== 'number') return false
+    if (v.spell !== undefined && typeof v.spell !== 'boolean') return false
+    if (v.start !== undefined && typeof v.start !== 'number') return false
+    if (v.end !== undefined && typeof v.end !== 'number') return false
+    return true
+  }
+
+  const normalizeTextArray = (value: unknown): AudioText[] => {
+    if (!Array.isArray(value)) return []
+
+    const normalized: AudioText[] = []
+    for (const item of value) {
+      if (typeof item === 'string') {
+        normalized.push({ plain: item })
+        continue
+      }
+
+      if (item && typeof item === 'object') {
+        const obj = item as Record<string, unknown>
+        if (typeof obj.plain === 'string') {
+          const tokens = Array.isArray(obj.tokens)
+            ? (obj.tokens as unknown[]).filter(isInputWord)
+            : undefined
+
+          normalized.push({
+            plain: obj.plain,
+            ...(tokens && tokens.length > 0 ? { tokens } : {}),
+          })
+        }
+      }
+    }
+
+    return normalized
+  }
+
+  const safeOriginalText = normalizeTextArray(originalText)
+  const safeTranslatedText = normalizeTextArray(translatedText)
 
   if (authorization) {
     const verifiedToken = verifyToken(authorization as string)

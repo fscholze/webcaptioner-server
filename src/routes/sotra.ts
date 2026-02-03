@@ -56,7 +56,7 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
 
       if (params.audioRecordId) {
         await AudioRecord.findByIdAndUpdate(params.audioRecordId, {
-          $push: { translatedText: responseData.translation },
+          $push: { translatedText: { plain: responseData.translation } },
         })
         // Notify websocket subscribers
         if (translationSubscribers[params.audioRecordId]) {

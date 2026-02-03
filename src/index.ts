@@ -14,6 +14,10 @@ import { connectDB } from './db'
 import { login, loginFree, register } from './controllers/auth'
 import { getMe } from './controllers/user'
 import {
+  CreateAudioRecordBodySchema,
+  UpdateAudioRecordBodySchema,
+} from './schemas/audio-record'
+import {
   createAudioRecord,
   deleteAudioRecord,
   getAudioRecords,
@@ -31,6 +35,44 @@ import { getAudioCast } from './controllers/audio-record'
 dayjs.extend(utc)
 const cors = require('cors')
 
+const migrateAudioRecordTextShape = async () => {
+  const normalize = (value: unknown) => {
+    if (!Array.isArray(value)) return []
+    return value
+      .map(item => {
+        if (typeof item === 'string') return { plain: item }
+        if (item && typeof item === 'object') {
+          const obj = item as Record<string, unknown>
+          if (typeof obj.plain === 'string') {
+            const tokens = Array.isArray(obj.tokens) ? obj.tokens : undefined
+            return {
+              plain: obj.plain,
+              ...(tokens && tokens.length > 0 ? { tokens } : {}),
+            }
+          }
+        }
+        return null
+      })
+      .filter(Boolean)
+  }
+
+  const cursor = AudioRecord.find({
+    $or: [
+      { originalText: { $elemMatch: { $type: 'string' } } },
+      { translatedText: { $elemMatch: { $type: 'string' } } },
+    ],
+  }).cursor()
+
+  for await (const record of cursor) {
+    const originalText = normalize((record as any).originalText)
+    const translatedText = normalize((record as any).translatedText)
+    await AudioRecord.updateOne(
+      { _id: (record as any)._id },
+      { $set: { originalText, translatedText } },
+    ).exec()
+  }
+}
+
 // configures dotenv to work in your application
 dotenv.config()
 const { app } = expressWs(express())
@@ -40,16 +82,18 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 connectDB().then(async () => {
-  const user = await User.findOne({ email: process.env.DB_ADMIN_EMAIL })
-  if (user) return
+  await migrateAudioRecordTextShape()
 
-  const adminUser = await User.create({
-    firstname: process.env.DB_ADMIN_FIRSTNAME,
-    lastname: process.env.DB_ADMIN_LASTNAME,
-    email: process.env.DB_ADMIN_EMAIL,
-    password: await hashPassword(process.env.DB_ADMIN_PASSWORD!),
-  })
-  await User.findByIdAndUpdate(adminUser._id, { role: UserRole.ADMIN })
+  const user = await User.findOne({ email: process.env.DB_ADMIN_EMAIL })
+  if (!user) {
+    const adminUser = await User.create({
+      firstname: process.env.DB_ADMIN_FIRSTNAME,
+      lastname: process.env.DB_ADMIN_LASTNAME,
+      email: process.env.DB_ADMIN_EMAIL,
+      password: await hashPassword(process.env.DB_ADMIN_PASSWORD!),
+    })
+    await User.findByIdAndUpdate(adminUser._id, { role: UserRole.ADMIN })
+  }
 })
 
 const PORT = process.env.PORT
@@ -122,7 +166,7 @@ app.ws('/vosk', async (ws, req) => {
           if (trimmedText.length <= 0) return
 
           await AudioRecord.findByIdAndUpdate(recordId, {
-            $push: { originalText: trimmedText },
+            $push: { originalText: { plain: trimmedText } },
           })
         }
       }
@@ -187,9 +231,17 @@ app.get('/auth/me', getMe)
 
 app.get('/users/audioRecords', getAudioRecords)
 
-app.post('/users/audioRecords', createAudioRecord)
+app.post(
+  '/users/audioRecords',
+  validateData(CreateAudioRecordBodySchema),
+  createAudioRecord,
+)
 
-app.put('/users/audioRecords/:id', updateAudioRecord)
+app.put(
+  '/users/audioRecords/:id',
+  validateData(UpdateAudioRecordBodySchema),
+  updateAudioRecord,
+)
 
 app.delete('/users/audioRecords/:id', deleteAudioRecord)
 

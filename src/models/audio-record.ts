@@ -13,22 +13,41 @@ const generateToken = (): string => {
 export interface IAudioRecord {
   createdAt: Date
   title: string
-  originalText: string[]
-  translatedText: string[]
+  originalText: AudioText[]
+  translatedText: AudioText[]
   owner: IUser
   token: string
   speakerId: string | null
 }
 
+export type InputWord = {
+  word: string
+  conf: number
+  spell?: boolean
+  start?: number
+  end?: number
+}
+
+export type AudioText = {
+  plain: string
+  tokens?: InputWord[]
+}
+
 const audioRecordSchema = new Schema<IAudioRecord>(
   {
     originalText: {
-      type: [String],
+      // Stored as objects like { plain: string, tokens?: InputWord[] }.
+      // Kept as Mixed to tolerate legacy string[] data already in MongoDB.
+      type: [Schema.Types.Mixed] as any,
       required: true,
+      default: [],
     },
     translatedText: {
-      type: [String],
+      // Stored as objects like { plain: string, tokens?: InputWord[] }.
+      // Kept as Mixed to tolerate legacy string[] data already in MongoDB.
+      type: [Schema.Types.Mixed] as any,
       required: true,
+      default: [],
     },
     title: {
       type: String,
@@ -53,7 +72,7 @@ const audioRecordSchema = new Schema<IAudioRecord>(
 )
 
 // Pre-save hook to ensure token uniqueness
-audioRecordSchema.pre('save', async function (next) {
+audioRecordSchema.pre('save', async function (this: any, next) {
   if (!this.isModified('token')) return next()
 
   let isUnique = false
