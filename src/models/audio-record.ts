@@ -68,7 +68,7 @@ const audioRecordSchema = new Schema<IAudioRecord>(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 )
 
 // Pre-save hook to ensure token uniqueness
@@ -95,7 +95,7 @@ audioRecordSchema.pre('save', async function (this: any, next) {
 
   if (!isUnique) {
     return next(
-      new Error('Could not generate unique token after multiple attempts')
+      new Error('Could not generate unique token after multiple attempts'),
     )
   }
 

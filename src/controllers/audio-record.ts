@@ -80,15 +80,35 @@ export const createAudioRecord = async (req: Request, res: Response) => {
     speakerId: string | null
   }
 
-  const isInputWord = (value: unknown): value is InputWord => {
-    if (!value || typeof value !== 'object') return false
+  const normalizeSpell = (value: unknown): boolean | undefined => {
+    if (value === undefined || value === null) return undefined
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'number') return value === 1
+    if (typeof value === 'string') return value === '1' || value === 'true'
+    return undefined
+  }
+
+  const normalizeNumber = (value: unknown): number | undefined => {
+    if (value === undefined || value === null) return undefined
+    const n =
+      typeof value === 'number' ? value : Number.parseFloat(String(value))
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  const coerceInputWord = (value: unknown): InputWord | null => {
+    if (!value || typeof value !== 'object') return null
     const v = value as Record<string, unknown>
-    if (typeof v.word !== 'string') return false
-    if (typeof v.conf !== 'number') return false
-    if (v.spell !== undefined && typeof v.spell !== 'boolean') return false
-    if (v.start !== undefined && typeof v.start !== 'number') return false
-    if (v.end !== undefined && typeof v.end !== 'number') return false
-    return true
+    const word = typeof v.word === 'string' ? v.word : String(v.word ?? '')
+    const conf = normalizeNumber(v.conf)
+    if (!word.trim() || conf === undefined) return null
+
+    return {
+      word,
+      conf,
+      spell: normalizeSpell(v.spell),
+      start: normalizeNumber(v.start),
+      end: normalizeNumber(v.end),
+    }
   }
 
   const normalizeTextArray = (value: unknown): AudioText[] => {
@@ -104,8 +124,12 @@ export const createAudioRecord = async (req: Request, res: Response) => {
       if (item && typeof item === 'object') {
         const obj = item as Record<string, unknown>
         if (typeof obj.plain === 'string') {
-          const tokens = Array.isArray(obj.tokens)
-            ? (obj.tokens as unknown[]).filter(isInputWord)
+          const rawTokens =
+            obj.tokens ?? obj.result ?? obj.words ?? (obj as any).word
+          const tokens = Array.isArray(rawTokens)
+            ? (rawTokens as unknown[])
+                .map(coerceInputWord)
+                .filter((t): t is InputWord => Boolean(t))
             : undefined
 
           normalized.push({

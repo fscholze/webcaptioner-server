@@ -35,6 +35,82 @@ import { getAudioCast } from './controllers/audio-record'
 dayjs.extend(utc)
 const cors = require('cors')
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const normalizeSpell = (value: unknown): boolean | undefined => {
+  if (value === undefined || value === null) return undefined
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+  if (typeof value === 'string') return value === '1' || value === 'true'
+  return undefined
+}
+
+const normalizeNumber = (value: unknown): number | undefined => {
+  if (value === undefined || value === null) return undefined
+  const n = typeof value === 'number' ? value : Number.parseFloat(String(value))
+  return Number.isFinite(n) ? n : undefined
+}
+
+type NormalizedToken = {
+  word: string
+  conf: number
+  spell?: boolean
+  start?: number
+  end?: number
+}
+
+const normalizeInputWords = (raw: unknown): NormalizedToken[] | undefined => {
+  if (!Array.isArray(raw)) return undefined
+  const tokens = raw
+    .map((t): NormalizedToken | null => {
+      if (!isRecord(t)) return null
+      const word = typeof t.word === 'string' ? t.word : String(t.word ?? '')
+      const conf = normalizeNumber(t.conf)
+      if (!word.trim() || conf === undefined) return null
+
+      return {
+        word,
+        conf,
+        spell: normalizeSpell(t.spell),
+        start: normalizeNumber(t.start),
+        end: normalizeNumber(t.end),
+      }
+    })
+    .filter((t): t is NormalizedToken => Boolean(t))
+
+  return tokens.length ? tokens : undefined
+}
+
+const normalizePlainFromText = (text: unknown): string => {
+  if (typeof text !== 'string') return ''
+  const trimmed = text.trim()
+  const dequoted = trimmed
+    .replace(/^"+/, '')
+    .replace(/"+$/, '')
+    .replace(/^'+/, '')
+    .replace(/'+$/, '')
+    .trim()
+  return dequoted
+}
+
+const shouldIgnoreTranscriptionText = (plainText: string): boolean => {
+  const t = plainText.trim()
+  if (!t) return true
+  const lower = t.toLowerCase()
+
+  // Ignore known model-load/status banners
+  if (lower.includes('ggml-model')) return true
+  if (lower.includes('whisper.cpp')) return true
+  if (lower.includes('--whisper-')) return true
+
+  // Ignore lines that are only punctuation/whitespace
+  const hasAlphaNum = /[\p{L}\p{N}]/u.test(t)
+  if (!hasAlphaNum) return true
+
+  return false
+}
+
 const migrateAudioRecordTextShape = async () => {
   const normalize = (value: unknown) => {
     if (!Array.isArray(value)) return []
@@ -155,21 +231,35 @@ app.ws('/vosk', async (ws, req) => {
     // Parse the message and save to audio record if it's a transcription
     try {
       const data = JSON.parse(event.data.toString())
-      if (data.text) {
-        if (
-          data.text &&
-          data.text !== '-- ***/whisper/ggml-model.q8_0.bin --' &&
-          data.text !== '-- **/whisper/ggml-model.q8_0.bin --' &&
-          data.text !== '-- */whisper/ggml-model.q8_0.bin --'
-        ) {
-          const trimmedText = data.text.slice(2, -2).trim()
-          if (trimmedText.length <= 0) return
+      if (!recordId) return
 
-          await AudioRecord.findByIdAndUpdate(recordId, {
-            $push: { originalText: { plain: trimmedText } },
-          })
-        }
+      const rawText = typeof data?.text === 'string' ? data.text : ''
+      if (
+        rawText === '-- ***/whisper/ggml-model.q8_0.bin --' ||
+        rawText === '-- **/whisper/ggml-model.q8_0.bin --' ||
+        rawText === '-- */whisper/ggml-model.q8_0.bin --'
+      ) {
+        return
       }
+
+      const tokens = normalizeInputWords(
+        (data as any)?.tokens ?? (data as any)?.result ?? (data as any)?.words,
+      )
+
+      const plainText = tokens?.length
+        ? tokens.map(t => t.word).join(' ')
+        : normalizePlainFromText(rawText)
+
+      if (shouldIgnoreTranscriptionText(plainText)) return
+
+      await AudioRecord.findByIdAndUpdate(recordId, {
+        $push: {
+          originalText: {
+            plain: plainText,
+            ...(tokens?.length ? { tokens } : {}),
+          },
+        },
+      })
     } catch (error) {
       console.error('Error saving transcription:', error)
     }
