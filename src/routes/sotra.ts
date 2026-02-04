@@ -1,9 +1,15 @@
 import { Response } from 'express'
 import axios from 'axios'
 import { z } from 'zod'
-import { AudioRecord } from '../models/audio-record'
+import { AudioRecord, InputWord } from '../models/audio-record'
 import { translationSubscribers } from '../index'
-import { InputWordSchema } from '../schemas/audio-record'
+import { calculateQualityFromOriginalTokens } from '../helper/token-quality'
+
+const parseEnvNumber = (value: unknown, fallback: number): number => {
+  if (typeof value !== 'string' || !value.trim()) return fallback
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
 
 export const SotraParamsSchema = z.object({
   model: z.enum(['ctranslate', 'fairseq']),
@@ -11,8 +17,6 @@ export const SotraParamsSchema = z.object({
   sourceLanguage: z.enum(['de', 'hsb']),
   targetLanguage: z.enum(['de', 'hsb']),
   audioRecordId: z.string().optional(),
-  // Optional metadata for persistence (word-level Vosk/Whisper output).
-  originalTokens: z.array(InputWordSchema).optional(),
 })
 type SotraParams = z.infer<typeof SotraParamsSchema>
 
@@ -21,31 +25,7 @@ type SotraResponse = {
   model: string
 }
 
-const shouldIgnoreTranscriptionText = (plainText: string): boolean => {
-  const t = plainText.trim()
-  if (!t) return true
-  const lower = t.toLowerCase()
-
-  // Ignore known model-load/status banners
-  if (lower.includes('ggml-model')) return true
-  if (lower.includes('whisper.cpp')) return true
-  if (lower.includes('--whisper-')) return true
-
-  // Ignore lines that are only punctuation/whitespace
-  const hasAlphaNum = /[\p{L}\p{N}]/u.test(t)
-  if (!hasAlphaNum) return true
-
-  return false
-}
-
 export const translateViaSotra = (params: SotraParams, response: Response) => {
-  if (shouldIgnoreTranscriptionText(params.text)) {
-    // Don't call Sotra or persist/broadcast non-transcription status lines.
-    return response
-      .status(200)
-      .send(JSON.stringify({ translation: '', model: params.model }))
-  }
-
   const data = JSON.stringify({
     text: params.text,
     source_language: params.sourceLanguage,
@@ -82,40 +62,39 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
       }
 
       if (params.audioRecordId) {
-        await AudioRecord.findByIdAndUpdate(params.audioRecordId, {
-          $push: { translatedText: { plain: responseData.translation } },
-        }).exec()
+        const oldRecord = await AudioRecord.findById(
+          params.audioRecordId,
+        ).exec()
+        const latestOriginalTokens =
+          oldRecord?.originalText.at(-1)?.tokens || []
 
-        // If the client provides the word-level tokens, attach them to the
-        // matching originalText entry (created by /vosk) so DB keeps full shape.
-        if (params.originalTokens?.length) {
-          const updateResult = await AudioRecord.updateOne(
-            { _id: params.audioRecordId },
-            { $set: { 'originalText.$[line].tokens': params.originalTokens } },
-            {
-              arrayFilters: [
-                {
-                  'line.plain': params.text,
-                  'line.tokens': { $exists: false },
-                },
-              ],
-            },
-          ).exec()
+        const { avgConf, spellOk } =
+          calculateQualityFromOriginalTokens(latestOriginalTokens)
 
-          if (updateResult.matchedCount === 0) {
-            await AudioRecord.updateOne(
-              { _id: params.audioRecordId },
-              {
-                $push: {
-                  originalText: {
-                    plain: params.text,
-                    tokens: params.originalTokens,
-                  },
-                },
+        const parsedTokens: InputWord[] = responseData.translation
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(token => ({
+            word: token,
+            conf: avgConf,
+            spell: spellOk,
+          }))
+
+        const updatedRecord = await AudioRecord.findByIdAndUpdate(
+          params.audioRecordId,
+          {
+            $push: {
+              translatedText: {
+                plain: responseData.translation,
+                tokens: parsedTokens,
               },
-            ).exec()
-          }
-        }
+            },
+          },
+          { new: true },
+        ).exec()
+
+        const newOriginalRecord = updatedRecord?.originalText.at(-1)
+        const newTranslationRecord = updatedRecord?.translatedText.at(-1)
 
         // Notify websocket subscribers
         if (translationSubscribers[params.audioRecordId]) {
@@ -123,9 +102,10 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
             if (ws.readyState === ws.OPEN) {
               ws.send(
                 JSON.stringify({
-                  original: params.text,
-                  originalTokens: params.originalTokens,
-                  translation: responseData.translation,
+                  original: newOriginalRecord?.plain || 'zmylk',
+                  originalTokens: newOriginalRecord?.tokens || [],
+                  translation: newTranslationRecord?.plain || 'zmylk',
+                  translationTokens: newTranslationRecord?.tokens || [],
                 }),
               )
             }
