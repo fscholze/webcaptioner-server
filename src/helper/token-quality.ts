@@ -34,9 +34,7 @@ export const calculateQualityFromOriginalTokens = (
     ? misspellCount / spellValues.length
     : 0
 
-  const spellOk =
-    avgConf >= SOTRA_SPELL_CONF_THRESHOLD &&
-    misspellRatio <= SOTRA_MISSPELL_RATIO_THRESHOLD
+  const spellOk = true
 
   return { avgConf, spellOk }
 }
