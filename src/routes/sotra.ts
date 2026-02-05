@@ -5,12 +5,6 @@ import { AudioRecord, InputWord } from '../models/audio-record'
 import { translationSubscribers } from '../index'
 import { calculateQualityFromOriginalTokens } from '../helper/token-quality'
 
-const parseEnvNumber = (value: unknown, fallback: number): number => {
-  if (typeof value !== 'string' || !value.trim()) return fallback
-  const parsed = Number.parseFloat(value)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
-
 export const SotraParamsSchema = z.object({
   model: z.enum(['ctranslate', 'fairseq']),
   text: z.string(),
@@ -23,6 +17,8 @@ type SotraParams = z.infer<typeof SotraParamsSchema>
 type SotraResponse = {
   translation: string
   model: string
+  translationTokens?: InputWord[]
+  originalTokens?: InputWord[]
 }
 
 export const translateViaSotra = (params: SotraParams, response: Response) => {
@@ -80,6 +76,9 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
             spell: spellOk,
           }))
 
+        responseData.translationTokens = parsedTokens
+        responseData.originalTokens = latestOriginalTokens
+
         const updatedRecord = await AudioRecord.findByIdAndUpdate(
           params.audioRecordId,
           {
@@ -111,6 +110,17 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
             }
           }
         }
+      }
+
+      if (!responseData.translationTokens) {
+        responseData.translationTokens = responseData.translation
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(token => ({
+            word: token,
+            conf: 0,
+            spell: true,
+          }))
       }
 
       return response.status(200).send(JSON.stringify(responseData))

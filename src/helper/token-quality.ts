@@ -1,7 +1,5 @@
 import { InputWord } from '../models/audio-record'
 
-const SOTRA_SPELL_CONF_THRESHOLD = 0.6
-const SOTRA_MISSPELL_RATIO_THRESHOLD = 0
 const SOTRA_CONF_FALLBACK = 0
 
 export type TokenQuality = {
