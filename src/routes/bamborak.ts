@@ -5,13 +5,15 @@ import { z } from 'zod'
 export const BamborakParamsSchema = z.object({
   text: z.string(),
   speaker_id: z.string(),
+  format: z.enum(['mp3', 'wav']),
+  sampleRate: z.number().optional(),
 })
 
 type BamborakParams = z.infer<typeof BamborakParamsSchema>
 
 export const getAudioFromText = (
   params: BamborakParams,
-  response: Response
+  response: Response,
 ) => {
   const config: AxiosRequestConfig = {
     method: 'post',
