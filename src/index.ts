@@ -269,16 +269,7 @@ app.ws('/vosk', async (ws, req) => {
 
   ws.on('message', (message: string) => {
     if (webSocket.readyState === webSocket.OPEN) {
-      if (message.length === 13) {
-        const time = parseInt(message, 10)
-        const timeStatus = `seconds=${Math.trunc(time / 1000)},milli=${
-          time - Math.trunc(time / 1000) * 1000
-        }`
-
-        webSocket.send(timeStatus)
-      } else {
-        webSocket.send(message)
-      }
+      webSocket.send(message)
     }
   })
 
