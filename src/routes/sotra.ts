@@ -3,7 +3,7 @@ import axios from 'axios'
 import { z } from 'zod'
 import { AudioRecord, InputWord } from '../models/audio-record'
 import { translationSubscribers } from '../index'
-import { calculateQualityFromOriginalTokens } from '../helper/token-quality'
+import { projectTranslationConfidences } from '../helper/token-quality'
 
 export const SotraParamsSchema = z.object({
   model: z.enum(['ctranslate', 'fairseq']),
@@ -64,17 +64,22 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
         const latestOriginalTokens =
           oldRecord?.originalText.at(-1)?.tokens || []
 
-        const { avgConf, spellOk } =
-          calculateQualityFromOriginalTokens(latestOriginalTokens)
-
-        const parsedTokens: InputWord[] = responseData.translation
+        const translationWords = responseData.translation
           .split(/\s+/)
           .filter(Boolean)
-          .map(token => ({
+
+        const projectedConfs = projectTranslationConfidences(
+          latestOriginalTokens,
+          translationWords.length,
+        )
+
+        const parsedTokens: InputWord[] = translationWords.map(
+          (token, index) => ({
             word: token,
-            conf: avgConf,
-            spell: spellOk,
-          }))
+            conf: projectedConfs[index] ?? 0,
+            spell: (projectedConfs[index] ?? 0) >= 0.5,
+          }),
+        )
 
         responseData.translationTokens = parsedTokens
         responseData.originalTokens = latestOriginalTokens
