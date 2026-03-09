@@ -100,9 +100,9 @@ const shouldIgnoreTranscriptionText = (plainText: string): boolean => {
   const lower = t.toLowerCase()
 
   // Ignore known model-load/status banners
-  if (lower.includes('ggml-model')) return true
-  if (lower.includes('whisper.cpp')) return true
-  if (lower.includes('--whisper-')) return true
+  // if (lower.includes('ggml-model')) return true
+  // if (lower.includes('whisper.cpp')) return true
+  // if (lower.includes('--whisper-')) return true
 
   // Ignore lines that are only punctuation/whitespace
   const hasAlphaNum = /[\p{L}\p{N}]/u.test(t)
@@ -234,13 +234,13 @@ app.ws('/vosk', async (ws, req) => {
       if (!recordId) return
 
       const rawText = typeof data?.text === 'string' ? data.text : ''
-      if (
-        rawText === '-- ***/whisper/ggml-model.q8_0.bin --' ||
-        rawText === '-- **/whisper/ggml-model.q8_0.bin --' ||
-        rawText === '-- */whisper/ggml-model.q8_0.bin --'
-      ) {
-        return
-      }
+      // if (
+      //   rawText === '-- ***/whisper/ggml-model.q8_0.bin --' ||
+      //   rawText === '-- **/whisper/ggml-model.q8_0.bin --' ||
+      //   rawText === '-- */whisper/ggml-model.q8_0.bin --'
+      // ) {
+      //   return
+      // }
 
       const tokens = normalizeInputWords(
         (data as any)?.tokens ?? (data as any)?.result ?? (data as any)?.words,
