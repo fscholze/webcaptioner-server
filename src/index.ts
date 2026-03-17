@@ -265,7 +265,10 @@ app.ws('/vosk', async (ws, req) => {
     }
   }
 
-  webSocket.onopen = () => console.log('Connection to Websocket established 🚀')
+  webSocket.onopen = () => {
+    console.log('Connection to Websocket established 🚀')
+    ws.send(JSON.stringify({ type: 'vosk_ready' }))
+  }
 
   ws.on('message', (message: string) => {
     if (webSocket.readyState === webSocket.OPEN) {

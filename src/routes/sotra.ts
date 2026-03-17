@@ -132,6 +132,6 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
     })
     .catch(error => {
       console.error('Sotra error: ', error.message)
-      return response.status(400).send(error.response?.data ?? 'Error')
+      return response.status(200).send(error.response?.data ?? 'Error')
     })
 }
