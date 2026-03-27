@@ -55,6 +55,21 @@ export const getAudioRecords = async (req: Request, res: Response) => {
   res.status(403).json({ message: 'Invalid token' })
 }
 
+export const getAudioRecord = async (req: Request, res: Response) => {
+  const { recordId } = req.params
+
+  if (recordId) {
+    const audioRecords = await AudioRecord.findById(recordId)
+      .select('-owner')
+      .exec()
+
+    if (!audioRecords)
+      return res.status(400).json({ message: 'Wrong recordId' })
+    return res.send(audioRecords)
+  }
+  res.status(400).json({ message: 'Wrong recordId' })
+}
+
 export const getAudioCast = async (req: Request, res: Response) => {
   const { token } = req.params
 

@@ -21,6 +21,7 @@ import {
   createAudioRecord,
   deleteAudioRecord,
   getAudioRecords,
+  getAudioRecord,
   updateAudioRecord,
 } from './controllers/audio-record'
 import { User, UserRole } from './models/user'
@@ -314,6 +315,8 @@ app.post('/auth/loginFree', loginFree)
 app.get('/auth/me', getMe)
 
 app.get('/users/audioRecords', getAudioRecords)
+
+app.get('/users/audioRecords/:recordId', getAudioRecord)
 
 app.post(
   '/users/audioRecords',
