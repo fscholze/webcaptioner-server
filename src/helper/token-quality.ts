@@ -9,6 +9,22 @@ export type TokenQuality = {
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
 
+const areTokenLengthsComparable = (
+  originalLength: number,
+  translationLength: number,
+): boolean => {
+  if (originalLength <= 0 || translationLength <= 0) {
+    return false
+  }
+
+  const absDiff = Math.abs(originalLength - translationLength)
+  const lengthRatio =
+    Math.min(originalLength, translationLength) /
+    Math.max(originalLength, translationLength)
+
+  return absDiff <= 2 || lengthRatio >= 0.75
+}
+
 const toConfArray = (tokens: InputWord[] | undefined): number[] => {
   const safeTokens = Array.isArray(tokens) ? tokens : []
 
@@ -52,6 +68,20 @@ export const projectTranslationConfidences = (
 
   if (!confValues.length) {
     return new Array(translationLength).fill(SOTRA_CONF_FALLBACK)
+  }
+
+  if (areTokenLengthsComparable(confValues.length, translationLength)) {
+    // Preserve local confidence pattern when token counts are close.
+    return new Array(translationLength).fill(0).map((_, index) => {
+      const mappedPosition =
+        ((index + 0.5) / translationLength) * confValues.length - 0.5
+      const nearestIndex = Math.round(mappedPosition)
+      const nearestConfidence =
+        confValues[Math.max(0, Math.min(confValues.length - 1, nearestIndex))]
+      const interpolated = interpolateAt(confValues, mappedPosition)
+
+      return clamp01(nearestConfidence * 0.8 + interpolated * 0.2)
+    })
   }
 
   const firstWindowSize = Math.max(1, Math.ceil(confValues.length * 0.25))
