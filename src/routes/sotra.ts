@@ -9,7 +9,7 @@ export const SotraParamsSchema = z.object({
   model: z.enum(['ctranslate', 'fairseq']),
   text: z.string(),
   sourceLanguage: z.enum(['de', 'hsb']),
-  targetLanguage: z.enum(['de', 'hsb']),
+  targetLanguage: z.enum(['de', 'hsb', 'cs', 'dsb']),
   audioRecordId: z.string().optional(),
 })
 type SotraParams = z.infer<typeof SotraParamsSchema>
