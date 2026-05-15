@@ -7,6 +7,7 @@ export const BamborakParamsSchema = z.object({
   speaker_id: z.string(),
   format: z.enum(['mp3', 'wav']),
   sampleRate: z.number().optional(),
+  speed: z.number().min(0).max(2).optional(),
 })
 
 type BamborakParams = z.infer<typeof BamborakParamsSchema>
