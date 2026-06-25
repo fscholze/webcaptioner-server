@@ -233,6 +233,12 @@ app.ws('/vosk', async (ws, req) => {
     try {
       const data = JSON.parse(event.data.toString())
       if (!recordId) return
+      console.log(data)
+
+      if (typeof data.partial === 'string') {
+        broadcastPartialToTranslationSubscribers(recordId, data.partial)
+        return
+      }
 
       const rawText = typeof data?.text === 'string' ? data.text : ''
       // if (
@@ -252,6 +258,8 @@ app.ws('/vosk', async (ws, req) => {
         : normalizePlainFromText(rawText)
 
       if (shouldIgnoreTranscriptionText(plainText)) return
+
+      broadcastPartialToTranslationSubscribers(recordId, '')
 
       await AudioRecord.findByIdAndUpdate(recordId, {
         $push: {
@@ -285,6 +293,24 @@ app.ws('/vosk', async (ws, req) => {
 
 // In-memory pub/sub for translation events
 export const translationSubscribers: { [recordId: string]: Set<any> } = {}
+export const lastPartialByRecordId: { [recordId: string]: string } = {}
+
+export const broadcastPartialToTranslationSubscribers = (
+  recordId: string,
+  partial: string,
+) => {
+  lastPartialByRecordId[recordId] = partial
+
+  const subscribers = translationSubscribers[recordId]
+  if (!subscribers?.size) return
+
+  const payload = JSON.stringify({ partial })
+  for (const subWs of subscribers) {
+    if (subWs.readyState === subWs.OPEN) {
+      subWs.send(payload)
+    }
+  }
+}
 
 // WebSocket endpoint for translation updates
 app.ws('/translations', (ws, req) => {
@@ -297,6 +323,21 @@ app.ws('/translations', (ws, req) => {
     translationSubscribers[recordId] = new Set()
   }
   translationSubscribers[recordId].add(ws)
+
+  const lastPartial = lastPartialByRecordId[recordId]
+  if (typeof lastPartial === 'string' && lastPartial.length > 0) {
+    ws.send(JSON.stringify({ partial: lastPartial }))
+  }
+
+  ws.on('message', (message: string) => {
+    try {
+      const data = JSON.parse(message)
+      if (typeof data.partial !== 'string') return
+      broadcastPartialToTranslationSubscribers(recordId, data.partial)
+    } catch {
+      // ignore non-JSON payloads
+    }
+  })
 
   ws.on('close', () => {
     translationSubscribers[recordId].delete(ws)
