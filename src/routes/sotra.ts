@@ -21,6 +21,86 @@ type SotraResponse = {
   originalTokens?: InputWord[]
 }
 
+const processSotraTranslation = async (
+  params: SotraParams,
+  response: Response,
+  translation: string,
+  model: string,
+) => {
+  const responseData: SotraResponse = {
+    translation,
+    model,
+  }
+
+  if (params.audioRecordId) {
+    const oldRecord = await AudioRecord.findById(params.audioRecordId).exec()
+    const latestOriginalTokens = oldRecord?.originalText.at(-1)?.tokens || []
+
+    const translationWords = responseData.translation
+      .split(/\s+/)
+      .filter(Boolean)
+
+    const projectedConfs = projectTranslationConfidences(
+      latestOriginalTokens,
+      translationWords.length,
+    )
+
+    const parsedTokens: InputWord[] = translationWords.map((token, index) => ({
+      word: token,
+      conf: projectedConfs[index] ?? 0,
+      spell: (projectedConfs[index] ?? 0) >= 0.5,
+    }))
+
+    responseData.translationTokens = parsedTokens
+    responseData.originalTokens = latestOriginalTokens
+
+    const updatedRecord = await AudioRecord.findByIdAndUpdate(
+      params.audioRecordId,
+      {
+        $push: {
+          translatedText: {
+            plain: responseData.translation,
+            tokens: parsedTokens,
+          },
+        },
+      },
+      { new: true },
+    ).exec()
+
+    const newOriginalRecord = updatedRecord?.originalText.at(-1)
+    const newTranslationRecord = updatedRecord?.translatedText.at(-1)
+
+    // Notify websocket subscribers
+    if (translationSubscribers[params.audioRecordId]) {
+      for (const ws of translationSubscribers[params.audioRecordId]) {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(
+            JSON.stringify({
+              original: newOriginalRecord?.plain || 'zmylk',
+              originalTokens: newOriginalRecord?.tokens || [],
+              translation: newTranslationRecord?.plain || 'zmylk',
+              translationTokens: newTranslationRecord?.tokens || [],
+            }),
+          )
+        }
+      }
+    }
+  }
+
+  if (!responseData.translationTokens) {
+    responseData.translationTokens = responseData.translation
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(token => ({
+        word: token,
+        conf: 0,
+        spell: true,
+      }))
+  }
+
+  return response.status(200).send(JSON.stringify(responseData))
+}
+
 export const translateViaSotra = (params: SotraParams, response: Response) => {
   const data = JSON.stringify({
     text: params.text,
@@ -28,6 +108,10 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
     target_language: params.targetLanguage,
     audio_record_id: params.audioRecordId,
   })
+
+  if (params.sourceLanguage === params.targetLanguage) {
+    return processSotraTranslation(params, response, params.text, params.model)
+  }
 
   const config = {
     method: 'post',
@@ -46,89 +130,17 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
   return axios
     .request(config)
     .then(async resp => {
-      let responseData: SotraResponse = {
-        translation: '',
-        model: resp.data.model,
-      }
+      const translation =
+        params.model === 'ctranslate'
+          ? resp.data.marked_translation.join(' ')
+          : resp.data.translation
 
-      if (params.model === 'ctranslate') {
-        responseData.translation = resp.data.marked_translation.join(' ')
-      } else {
-        responseData.translation = resp.data.translation
-      }
-
-      if (params.audioRecordId) {
-        const oldRecord = await AudioRecord.findById(
-          params.audioRecordId,
-        ).exec()
-        const latestOriginalTokens =
-          oldRecord?.originalText.at(-1)?.tokens || []
-
-        const translationWords = responseData.translation
-          .split(/\s+/)
-          .filter(Boolean)
-
-        const projectedConfs = projectTranslationConfidences(
-          latestOriginalTokens,
-          translationWords.length,
-        )
-
-        const parsedTokens: InputWord[] = translationWords.map(
-          (token, index) => ({
-            word: token,
-            conf: projectedConfs[index] ?? 0,
-            spell: (projectedConfs[index] ?? 0) >= 0.5,
-          }),
-        )
-
-        responseData.translationTokens = parsedTokens
-        responseData.originalTokens = latestOriginalTokens
-
-        const updatedRecord = await AudioRecord.findByIdAndUpdate(
-          params.audioRecordId,
-          {
-            $push: {
-              translatedText: {
-                plain: responseData.translation,
-                tokens: parsedTokens,
-              },
-            },
-          },
-          { new: true },
-        ).exec()
-
-        const newOriginalRecord = updatedRecord?.originalText.at(-1)
-        const newTranslationRecord = updatedRecord?.translatedText.at(-1)
-
-        // Notify websocket subscribers
-        if (translationSubscribers[params.audioRecordId]) {
-          for (const ws of translationSubscribers[params.audioRecordId]) {
-            if (ws.readyState === ws.OPEN) {
-              ws.send(
-                JSON.stringify({
-                  original: newOriginalRecord?.plain || 'zmylk',
-                  originalTokens: newOriginalRecord?.tokens || [],
-                  translation: newTranslationRecord?.plain || 'zmylk',
-                  translationTokens: newTranslationRecord?.tokens || [],
-                }),
-              )
-            }
-          }
-        }
-      }
-
-      if (!responseData.translationTokens) {
-        responseData.translationTokens = responseData.translation
-          .split(/\s+/)
-          .filter(Boolean)
-          .map(token => ({
-            word: token,
-            conf: 0,
-            spell: true,
-          }))
-      }
-
-      return response.status(200).send(JSON.stringify(responseData))
+      return processSotraTranslation(
+        params,
+        response,
+        translation,
+        resp.data.model,
+      )
     })
     .catch(error => {
       console.error('Sotra error: ', error.message)
