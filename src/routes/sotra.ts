@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { AudioRecord, InputWord } from '../models/audio-record'
 import { translationSubscribers } from '../index'
 import { projectTranslationConfidences } from '../helper/token-quality'
+import { isIncomprehensibleTranscription } from '../helper/transcription-quality'
 
 export const SotraParamsSchema = z.object({
   model: z.enum(['ctranslate', 'fairseq']),
@@ -19,6 +20,7 @@ type SotraResponse = {
   model: string
   translationTokens?: InputWord[]
   originalTokens?: InputWord[]
+  playBeep: boolean
 }
 
 const processSotraTranslation = async (
@@ -27,9 +29,12 @@ const processSotraTranslation = async (
   translation: string,
   model: string,
 ) => {
+  const playBeep = isIncomprehensibleTranscription(params.text)
+
   const responseData: SotraResponse = {
     translation,
     model,
+    playBeep,
   }
 
   if (params.audioRecordId) {
@@ -80,6 +85,7 @@ const processSotraTranslation = async (
               originalTokens: newOriginalRecord?.tokens || [],
               translation: newTranslationRecord?.plain || 'zmylk',
               translationTokens: newTranslationRecord?.tokens || [],
+              playBeep,
             }),
           )
         }
