@@ -10,7 +10,8 @@ export interface IUser {
   firstname: string
   lastname: string
   email: string
-  password: string
+  password?: string
+  keycloakId?: string
   role: UserRole
   audioRecords: IAudioRecord[]
 }
@@ -35,9 +36,14 @@ const userSchema = new Schema<IUser>(
       unique: true,
       maxlength: 255,
     },
+    keycloakId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     password: {
       type: String,
-      required: true,
+      required: false,
       minlength: 6,
       bcrypt: true,
       select: false,

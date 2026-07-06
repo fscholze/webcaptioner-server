@@ -11,7 +11,15 @@ import {
 import { SotraParamsSchema, translateViaSotra } from './routes/sotra'
 import { validateData } from './middleware/data-validation'
 import { connectDB } from './db'
-import { login, loginFree, register, forgotPassword } from './controllers/auth'
+import {
+  login,
+  register,
+  forgotPassword,
+  refreshToken,
+  loginFree,
+  IsUserAdmin,
+  listKeycloakUsers,
+} from './controllers/auth'
 import { getMe } from './controllers/user'
 import {
   CreateAudioRecordBodySchema,
@@ -25,7 +33,7 @@ import {
   updateAudioRecord,
 } from './controllers/audio-record'
 import { User, UserRole } from './models/user'
-import { hashPassword, isUser, verifyToken } from './helper/auth'
+import { hashPassword } from './helper/auth'
 import {
   BamborakParamsSchema,
   getAudioFromText,
@@ -347,15 +355,21 @@ app.ws('/translations', (ws, req) => {
   })
 })
 
+app.post('/auth/login', login)
+
 app.post('/auth/register', register)
 
 app.post('/auth/forgot-password', forgotPassword)
 
-app.post('/auth/login', login)
+app.post('/auth/forgot-password', forgotPassword)
+
+app.post('/auth/refresh', refreshToken)
 
 app.post('/auth/loginFree', loginFree)
 
 app.get('/auth/me', getMe)
+
+app.get('/auth/keycloak/users', IsUserAdmin, listKeycloakUsers)
 
 app.get('/users/audioRecords', getAudioRecords)
 

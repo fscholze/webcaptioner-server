@@ -1,6 +1,6 @@
 import { User } from '../models/user'
 import { Request, Response } from 'express'
-import { verifyToken } from '../helper/auth'
+import { resolveUserIdFromAuth } from '../helper/user-sync'
 import { AudioRecord, AudioText, InputWord } from '../models/audio-record'
 import dayjs from 'dayjs'
 
@@ -17,9 +17,9 @@ export const getAudioRecords = async (req: Request, res: Response) => {
 
   if (!authorization) return res.status(403).json({ message: 'Invalid token' })
 
-  const verifiedToken = verifyToken(authorization as string)
+  const userId = await resolveUserIdFromAuth(authorization as string)
 
-  if (verifiedToken?.id) {
+  if (userId) {
     const pageRaw = parsePositiveInt(req.query.page)
     const limitRaw = parsePositiveInt(req.query.limit)
 
@@ -28,7 +28,7 @@ export const getAudioRecords = async (req: Request, res: Response) => {
     const limit = Math.min(100, Math.max(1, limitRaw ?? 25))
 
     const baseQuery = {
-      owner: verifiedToken.id,
+      owner: userId,
     }
 
     if (!hasPagination) {
@@ -162,14 +162,14 @@ export const createAudioRecord = async (req: Request, res: Response) => {
   const safeTranslatedText = normalizeTextArray(translatedText)
 
   if (authorization) {
-    const verifiedToken = verifyToken(authorization as string)
+    const userId = await resolveUserIdFromAuth(authorization as string)
 
-    if (verifiedToken?.id) {
+    if (userId) {
       const audioRecord = await AudioRecord.create({
         title: dayjs().format('YYYY-MM-DD HH:mm'),
         originalText: safeOriginalText,
         translatedText: safeTranslatedText,
-        owner: verifiedToken.id,
+        owner: userId,
         speakerId,
       })
 
@@ -239,18 +239,17 @@ export const deleteAudioRecord = async (req: Request, res: Response) => {
   if (!authorization) return res.status(403).json({ message: 'Invalid token' })
   if (!recordId) return res.status(400).json({ message: 'Missing id' })
 
-  const verifiedToken = verifyToken(authorization as string)
-  if (!verifiedToken?.id)
-    return res.status(403).json({ message: 'Invalid token' })
+  const userId = await resolveUserIdFromAuth(authorization as string)
+  if (!userId) return res.status(403).json({ message: 'Invalid token' })
 
   const deleted = await AudioRecord.findOneAndDelete({
     _id: recordId,
-    owner: verifiedToken.id,
+    owner: userId,
   }).exec()
 
   if (!deleted) return res.status(404).json({ message: 'No Record found' })
 
-  await User.findByIdAndUpdate(verifiedToken.id, {
+  await User.findByIdAndUpdate(userId, {
     $pull: { audioRecords: recordId },
   }).exec()
 

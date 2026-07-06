@@ -1,44 +1,61 @@
-import { User } from '../models/user'
-import bcrypt from 'bcrypt'
 import { Request, Response, NextFunction } from 'express'
-import { createToken, hashPassword, isUser, isUserAdmin } from '../helper/auth'
-import { sendPasswordResetEmail } from '../helper/keycloak'
+import { isUserAdmin } from '../helper/auth'
+import {
+  createKeycloakUser,
+  getKeycloakUsers,
+  loginWithPassword,
+  refreshUserToken,
+  sendPasswordResetEmail,
+} from '../helper/keycloak'
+
+export const login = async (req: Request, res: Response) => {
+  const { email, password } = req.body
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' })
+  }
+
+  try {
+    const tokens = await loginWithPassword(email, password)
+    return res.json({
+      token: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+    })
+  } catch (error) {
+    if ((error as Error).message === 'INVALID_CREDENTIALS') {
+      return res.status(401).json({ message: 'Invalid email or password.' })
+    }
+    return res.status(500).json({ message: (error as Error).message })
+  }
+}
 
 export const register = async (req: Request, res: Response) => {
   const { firstname, lastname, email, password } = req.body
 
   if (!firstname || !lastname) {
-    return res.status(400).send({
-      statusCode: 400,
-      message: 'You must provide a username to create an account.',
-    })
-  } else if (!email) {
-    return res.status(400).send({
-      statusCode: 400,
-      message: 'You must provide an email address to create an account.',
-    })
-  } else if (!password) {
-    return res.status(400).send({
-      statusCode: 400,
-      message: 'You must provide a password to create an account.',
+    return res.status(400).json({
+      message: 'First name and last name are required.',
     })
   }
-
-  const checkEmail = await User.findOne({ email })
-  if (checkEmail) {
-    return res.status(409).send({
-      statusCode: 409,
-      message: 'This email address is already in use.',
-    })
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' })
   }
-  await User.create({
-    firstname,
-    lastname,
-    email,
-    password: await hashPassword(password),
-  })
+  if (!password) {
+    return res.status(400).json({ message: 'Password is required.' })
+  }
 
-  res.json({ message: 'Registration successful' })
+  try {
+    await createKeycloakUser({ firstname, lastname, email, password })
+    return res.json({ message: 'Registration successful' })
+  } catch (error) {
+    if ((error as Error).message === 'EMAIL_ALREADY_IN_USE') {
+      return res
+        .status(409)
+        .json({ message: 'This email address is already in use.' })
+    }
+    return res.status(500).json({ message: (error as Error).message })
+  }
 }
 
 export const forgotPassword = async (req: Request, res: Response) => {
@@ -50,34 +67,32 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
   try {
     await sendPasswordResetEmail(email)
-  } catch (error) {
-    console.error('Password reset email error:', (error as Error).message)
+  } catch {
+    // Always return success to avoid email enumeration
   }
 
-  // Always return success to avoid revealing whether the email exists.
-  res.json({ message: 'If the account exists, a reset email has been sent.' })
+  return res.json({
+    message:
+      'If an account with this email exists, a password reset link has been sent.',
+  })
 }
 
-export const login = async (req: Request, res: Response) => {
+export const refreshToken = async (req: Request, res: Response) => {
+  const { refreshToken: token } = req.body
+
+  if (!token) {
+    return res.status(400).json({ message: 'Refresh token is required.' })
+  }
+
   try {
-    const { email, password } = req.body
-    const user = await User.findOne({ email })
-      .select('_id password role')
-      .exec()
-
-    if (!user) {
-      return res.status(401).send()
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password)
-    if (!passwordMatch) {
-      return res.status(401).send()
-    }
-
-    const token = createToken({ email, id: user._id, role: user.role })
-    res.json({ token })
-  } catch (error) {
-    res.status(400).json({ message: (error as Error).message })
+    const tokens = await refreshUserToken(token)
+    return res.json({
+      token: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+    })
+  } catch {
+    return res.status(401).json({ message: 'Invalid refresh token.' })
   }
 }
 
@@ -99,11 +114,22 @@ export const loginFree = async (req: Request, res: Response) => {
 export const IsUserAdmin = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
-  const { token } = req.headers
-  if (!token) res.status(403).json({ message: 'Invalid token' })
-  const isAdmin = isUserAdmin(token as string)
-  if (isAdmin) next()
-  else res.status(403)
+  const { authorization } = req.headers
+  if (!authorization) return res.status(403).json({ message: 'Invalid token' })
+
+  const isAdmin = await isUserAdmin(authorization as string)
+  if (isAdmin) return next()
+
+  return res.status(403).json({ message: 'Forbidden' })
+}
+
+export const listKeycloakUsers = async (_req: Request, res: Response) => {
+  try {
+    const users = await getKeycloakUsers()
+    res.json(users)
+  } catch (error) {
+    res.status(500).json({ message: (error as Error).message })
+  }
 }

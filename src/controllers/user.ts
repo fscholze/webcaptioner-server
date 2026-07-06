@@ -1,21 +1,22 @@
 import { User } from '../models/user'
 import { Request, Response } from 'express'
-import { verifyToken } from '../helper/auth'
+import { verifyAuthToken } from '../helper/auth'
+import { findOrCreateUserFromToken } from '../helper/user-sync'
 
 export const getMe = async (req: Request, res: Response) => {
   const { authorization } = req.headers
 
   if (!authorization) return res.status(403).json({ message: 'Invalid token' })
 
-  const verifiedToken = verifyToken(authorization as string)
+  const verifiedToken = await verifyAuthToken(authorization as string)
 
-  if (verifiedToken?.id) {
-    const user = await User.findOne({ _id: verifiedToken.id })
-      .select('-audioRecords')
-      .exec()
-    if (!user) return res.status(403).json({ message: 'Invalid token' })
-
-    return res.send(user)
+  if (!verifiedToken) {
+    return res.status(403).json({ message: 'Invalid token' })
   }
-  res.status(403).json({ message: 'Invalid token' })
+
+  const user = await findOrCreateUserFromToken(verifiedToken)
+
+  if (!user) return res.status(403).json({ message: 'Invalid token' })
+
+  return res.send(user)
 }
