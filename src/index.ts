@@ -11,7 +11,7 @@ import {
 import { SotraParamsSchema, translateViaSotra } from './routes/sotra'
 import { validateData } from './middleware/data-validation'
 import { connectDB } from './db'
-import { login, loginFree, register } from './controllers/auth'
+import { login, loginFree, register, forgotPassword } from './controllers/auth'
 import { getMe } from './controllers/user'
 import {
   CreateAudioRecordBodySchema,
@@ -348,6 +348,8 @@ app.ws('/translations', (ws, req) => {
 })
 
 app.post('/auth/register', register)
+
+app.post('/auth/forgot-password', forgotPassword)
 
 app.post('/auth/login', login)
 

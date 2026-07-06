@@ -2,6 +2,7 @@ import { User } from '../models/user'
 import bcrypt from 'bcrypt'
 import { Request, Response, NextFunction } from 'express'
 import { createToken, hashPassword, isUser, isUserAdmin } from '../helper/auth'
+import { sendPasswordResetEmail } from '../helper/keycloak'
 
 export const register = async (req: Request, res: Response) => {
   const { firstname, lastname, email, password } = req.body
@@ -38,6 +39,23 @@ export const register = async (req: Request, res: Response) => {
   })
 
   res.json({ message: 'Registration successful' })
+}
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  const { email } = req.body
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' })
+  }
+
+  try {
+    await sendPasswordResetEmail(email)
+  } catch (error) {
+    console.error('Password reset email error:', (error as Error).message)
+  }
+
+  // Always return success to avoid revealing whether the email exists.
+  res.json({ message: 'If the account exists, a reset email has been sent.' })
 }
 
 export const login = async (req: Request, res: Response) => {

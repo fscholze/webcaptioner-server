@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express'
 import { z, ZodError } from 'zod'
 
 export const validateData =
-  (schema: z.ZodObject<any, any>) =>
+  (schema: z.ZodTypeAny) =>
   (req: Request, res: Response, next: NextFunction) => {
     try {
       schema.parse(req.body)
