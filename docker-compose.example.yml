@@ -12,6 +12,7 @@ services:
       - MONGODB_URI
       - JWT_SECRET_KEY
       - FREE_PASSWORD
+      - BAMBORAK_SERVER
       - DB_ADMIN_FIRSTNAME
       - DB_ADMIN_LASTNAME
       - DB_ADMIN_EMAIL
