@@ -4,21 +4,21 @@
     "description": "powšitkowny HSB",
     "path": "/whisper/Korla/hsb-v1.ggml",
     "transcriptLanguage": "hsb",
-    "voskUrl": "ws://vosk_whisper:2700"
-  },
-  {
-    "name": "dsb",
-    "description": "powšitkowny DSB",
-    "path": "/whisper/Korla/dsb-v1.ggml",
-    "transcriptLanguage": "dsb",
-    "voskUrl": "ws://vosk_whisper:2700"
+    "voskUrl": "ws://webcaptioner-vosk-server:2700"
   },
   {
     "name": "hsb-de",
     "description": "direkt HSB-->DE",
     "path": "/whisper/Korla/hsb-de-v1.ggml",
     "transcriptLanguage": "de",
-    "voskUrl": "ws://vosk_whisper:2700"
+    "voskUrl": "ws://webcaptioner-vosk-server-translate:2700"
+  },
+  {
+    "name": "dsb",
+    "description": "powšitkowny DSB",
+    "path": "/whisper/Korla/dsb-v1.ggml",
+    "transcriptLanguage": "dsb",
+    "voskUrl": "ws://webcaptioner-vosk-server:2700"
   },
   {
     "name": "boze-mse",
