@@ -7,6 +7,7 @@ import {
   isAllowedCallbackUri,
   isKeycloakConfigured,
   refreshUserToken,
+  verifyKeycloakToken,
 } from '../helper/keycloak'
 
 const loginWithDatabase = async (email: string, password: string) => {
@@ -59,6 +60,12 @@ export const keycloakCallback = async (req: Request, res: Response) => {
       redirectUri,
       codeVerifier,
     )
+    const verified = await verifyKeycloakToken(tokens.access_token)
+    if (!verified) {
+      return res.status(403).json({
+        message: 'Not a member of the required group.',
+      })
+    }
     return res.json({
       token: tokens.access_token,
       refreshToken: tokens.refresh_token,

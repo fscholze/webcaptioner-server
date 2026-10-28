@@ -2,6 +2,8 @@ import axios from 'axios'
 import jwksClient from 'jwks-rsa'
 import jwt from 'jsonwebtoken'
 
+type Group = string
+
 export interface KeycloakTokenPayload {
   sub: string
   email?: string
@@ -9,6 +11,20 @@ export interface KeycloakTokenPayload {
   family_name?: string
   preferred_username?: string
   realm_access?: { roles?: string[] }
+  groups?: Group[]
+}
+
+const getRequiredGroup = () => process.env.KEYCLOAK_REQUIRED_GROUP?.trim()
+
+export const isMemberOfRequiredGroup = (groups: Group[] | undefined) => {
+  if (!groups || groups.length === 0) return false
+  const required = getRequiredGroup()
+  if (!required) return false
+
+  return groups.some(group => {
+    const name = group.split('/').filter(Boolean).pop()
+    return name === required
+  })
 }
 
 const getKeycloakUrl = () => process.env.KEYCLOAK_URL?.replace(/\/$/, '') ?? ''
@@ -18,9 +34,9 @@ const getIssuer = () => `${getKeycloakUrl()}/realms/${getRealm()}`
 export const isKeycloakConfigured = () =>
   Boolean(
     process.env.KEYCLOAK_URL &&
-      process.env.KEYCLOAK_REALM &&
-      process.env.KEYCLOAK_CLIENT_ID &&
-      process.env.KEYCLOAK_CLIENT_SECRET,
+    process.env.KEYCLOAK_REALM &&
+    process.env.KEYCLOAK_CLIENT_ID &&
+    process.env.KEYCLOAK_CLIENT_SECRET,
   )
 
 let jwks: ReturnType<typeof jwksClient> | null = null
@@ -63,6 +79,8 @@ export const verifyKeycloakToken = async (
       algorithms: ['RS256'],
       issuer: getIssuer(),
     }) as KeycloakTokenPayload
+
+    if (!isMemberOfRequiredGroup(verified.groups)) return null
 
     return verified
   } catch {
