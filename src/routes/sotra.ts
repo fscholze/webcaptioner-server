@@ -14,7 +14,7 @@ export const SotraParamsSchema = z
   .object({
     model: z.enum(SOTRA_MODELS),
     text: z.string(),
-    sourceLanguage: z.enum(['de', 'hsb']),
+    sourceLanguage: z.enum(['de', 'hsb', 'dsb']),
     targetLanguage: z.enum([
       ...SOTRA_TARGET_LANGUAGES,
       ...LIBRETRANSLATE_TARGET_LANGUAGES,
@@ -200,10 +200,13 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
     return processSotraTranslation(params, response, params.text, params.model)
   }
 
+  const engineSource: 'de' | 'hsb' =
+    params.sourceLanguage === 'de' ? 'de' : 'hsb'
+
   if (params.model === 'libretranslate') {
     return translateViaLibreTranslate(
       params.text,
-      params.sourceLanguage,
+      engineSource,
       params.targetLanguage as 'en' | 'pl',
     )
       .then(translation =>
@@ -222,7 +225,7 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
 
   const data = JSON.stringify({
     text: params.text,
-    source_language: params.sourceLanguage,
+    source_language: engineSource,
     target_language: params.targetLanguage,
   })
 

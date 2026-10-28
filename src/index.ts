@@ -11,7 +11,13 @@ import {
 import { SotraParamsSchema, translateViaSotra } from './routes/sotra'
 import { validateData } from './middleware/data-validation'
 import { connectDB } from './db'
-import { login, refreshToken, loginFree } from './controllers/auth'
+import {
+  login,
+  refreshToken,
+  loginFree,
+  getKeycloakConfig,
+  keycloakCallback,
+} from './controllers/auth'
 import { getMe } from './controllers/user'
 import {
   CreateAudioRecordBodySchema,
@@ -370,6 +376,10 @@ app.ws('/translations', (ws, req) => {
     }
   })
 })
+
+app.get('/auth/keycloak/config', getKeycloakConfig)
+
+app.post('/auth/keycloak/callback', keycloakCallback)
 
 app.post('/auth/login', login)
 

@@ -74,11 +74,47 @@ export interface KeycloakTokenResponse {
   access_token: string
   refresh_token: string
   expires_in: number
+  id_token?: string
 }
 
-export const loginWithPassword = async (
-  username: string,
-  password: string,
+export const getKeycloakPublicConfig = () => {
+  if (!isKeycloakConfigured()) {
+    return { enabled: false as const }
+  }
+
+  return {
+    enabled: true as const,
+    authorizationEndpoint: `${getIssuer()}/protocol/openid-connect/auth`,
+    logoutEndpoint: `${getIssuer()}/protocol/openid-connect/logout`,
+    clientId: process.env.KEYCLOAK_CLIENT_ID as string,
+    scope: 'openid profile email',
+  }
+}
+
+export const isAllowedCallbackUri = (redirectUri: string) => {
+  let url: URL
+  try {
+    url = new URL(redirectUri)
+  } catch {
+    return false
+  }
+
+  if (url.pathname !== '/authentication/callback') return false
+  if (url.username || url.password || url.search || url.hash) return false
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
+
+  const allowed = (process.env.KEYCLOAK_REDIRECT_URIS ?? '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean)
+
+  if (allowed.length === 0) return true
+
+  return allowed.includes(`${url.origin}${url.pathname}`)
+}
+
+const requestToken = async (
+  params: Record<string, string>,
 ): Promise<KeycloakTokenResponse> => {
   const clientId = process.env.KEYCLOAK_CLIENT_ID
   const clientSecret = process.env.KEYCLOAK_CLIENT_SECRET
@@ -91,12 +127,9 @@ export const loginWithPassword = async (
     const response = await axios.post(
       `${getIssuer()}/protocol/openid-connect/token`,
       new URLSearchParams({
-        grant_type: 'password',
         client_id: clientId,
         client_secret: clientSecret,
-        username,
-        password,
-        scope: 'openid profile email',
+        ...params,
       }),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     )
@@ -105,39 +138,33 @@ export const loginWithPassword = async (
       access_token: response.data.access_token,
       refresh_token: response.data.refresh_token,
       expires_in: response.data.expires_in,
+      id_token: response.data.id_token,
     }
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      throw new Error('INVALID_CREDENTIALS')
+    if (
+      axios.isAxiosError(error) &&
+      (error.response?.status === 400 || error.response?.status === 401)
+    ) {
+      throw new Error('INVALID_TOKEN_REQUEST')
     }
     throw error
   }
 }
 
-export const refreshUserToken = async (
-  refreshToken: string,
-): Promise<KeycloakTokenResponse> => {
-  const clientId = process.env.KEYCLOAK_CLIENT_ID
-  const clientSecret = process.env.KEYCLOAK_CLIENT_SECRET
+export const exchangeAuthorizationCode = (
+  code: string,
+  redirectUri: string,
+  codeVerifier: string,
+) =>
+  requestToken({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
+  })
 
-  if (!clientId || !clientSecret) {
-    throw new Error('Keycloak client credentials are not configured')
-  }
-
-  const response = await axios.post(
-    `${getIssuer()}/protocol/openid-connect/token`,
-    new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-    }),
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
-  )
-
-  return {
-    access_token: response.data.access_token,
-    refresh_token: response.data.refresh_token,
-    expires_in: response.data.expires_in,
-  }
-}
+export const refreshUserToken = (refreshToken: string) =>
+  requestToken({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  })

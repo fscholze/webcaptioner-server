@@ -2,8 +2,10 @@ import { Request, Response } from 'express'
 import { User } from '../models/user'
 import { createToken, verifyPassword } from '../helper/auth'
 import {
+  exchangeAuthorizationCode,
+  getKeycloakPublicConfig,
+  isAllowedCallbackUri,
   isKeycloakConfigured,
-  loginWithPassword,
   refreshUserToken,
 } from '../helper/keycloak'
 
@@ -22,7 +24,62 @@ const loginWithDatabase = async (email: string, password: string) => {
   return createToken({ email, id: user._id, role: user.role })
 }
 
+export const getKeycloakConfig = (_req: Request, res: Response) => {
+  return res.json(getKeycloakPublicConfig())
+}
+
+export const keycloakCallback = async (req: Request, res: Response) => {
+  if (!isKeycloakConfigured()) {
+    return res.status(400).json({ message: 'Keycloak is not configured.' })
+  }
+
+  const { code, redirectUri, codeVerifier } = req.body ?? {}
+
+  if (
+    typeof code !== 'string' ||
+    typeof redirectUri !== 'string' ||
+    typeof codeVerifier !== 'string' ||
+    code.length === 0 ||
+    code.length > 2048
+  ) {
+    return res.status(400).json({ message: 'Invalid login callback.' })
+  }
+
+  if (!isAllowedCallbackUri(redirectUri)) {
+    return res.status(400).json({ message: 'Invalid redirect URI.' })
+  }
+
+  if (!/^[A-Za-z0-9\-._~]{43,128}$/.test(codeVerifier)) {
+    return res.status(400).json({ message: 'Invalid code verifier.' })
+  }
+
+  try {
+    const tokens = await exchangeAuthorizationCode(
+      code,
+      redirectUri,
+      codeVerifier,
+    )
+    return res.json({
+      token: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+      idToken: tokens.id_token,
+    })
+  } catch (error) {
+    if ((error as Error).message === 'INVALID_TOKEN_REQUEST') {
+      return res.status(401).json({ message: 'Login failed.' })
+    }
+    return res.status(500).json({ message: 'Login failed.' })
+  }
+}
+
 export const login = async (req: Request, res: Response) => {
+  if (isKeycloakConfigured()) {
+    return res.status(400).json({
+      message: 'Sign in through the Keycloak login page.',
+    })
+  }
+
   const { email, password } = req.body
 
   if (!email || !password) {
@@ -30,15 +87,6 @@ export const login = async (req: Request, res: Response) => {
   }
 
   try {
-    if (isKeycloakConfigured()) {
-      const tokens = await loginWithPassword(email, password)
-      return res.json({
-        token: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresIn: tokens.expires_in,
-      })
-    }
-
     const token = await loginWithDatabase(email, password)
     return res.json({ token })
   } catch (error) {
@@ -66,6 +114,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       token: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresIn: tokens.expires_in,
+      idToken: tokens.id_token,
     })
   } catch {
     return res.status(401).json({ message: 'Invalid refresh token.' })
