@@ -208,7 +208,7 @@ export const updateAudioRecord = async (req: Request, res: Response) => {
         _id: recordId,
       },
       { $set: { speakerId } },
-      { new: true, runValidators: true },
+      { returnDocument: 'after', runValidators: true },
     ).exec()
     if (!audioRecord)
       return res.status(400).json({ message: 'No Record found' })

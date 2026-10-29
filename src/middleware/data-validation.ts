@@ -3,14 +3,14 @@ import { Request, Response, NextFunction } from 'express'
 import { z, ZodError } from 'zod'
 
 export const validateData =
-  (schema: z.ZodTypeAny) =>
+  (schema: z.ZodType) =>
   (req: Request, res: Response, next: NextFunction) => {
     try {
       schema.parse(req.body)
       next()
     } catch (error) {
       if (error instanceof ZodError) {
-        const errorMessage = error.errors.map((issue) => ({
+        const errorMessage = error.issues.map((issue) => ({
           message: `${issue.path.join('.')} is ${issue.message}`,
         }))
         res.status(HttpStatusCode.BadRequest).json({ errors: errorMessage })

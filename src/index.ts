@@ -158,12 +158,18 @@ const migrateAudioRecordTextShape = async () => {
 }
 
 // configures dotenv to work in your application
-dotenv.config()
+dotenv.config({ quiet: true })
 const { app } = expressWs(express())
 expressWs(app)
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+// Express 5 leaves req.body undefined when no body parser matched (Express 4
+// used {}). Keep the old behavior so handlers can destructure req.body safely.
+app.use((req, _res, next) => {
+  if (req.body === undefined) req.body = {}
+  next()
+})
 
 connectDB().then(async () => {
   await migrateAudioRecordTextShape()

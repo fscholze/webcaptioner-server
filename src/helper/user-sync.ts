@@ -31,7 +31,7 @@ export const findOrCreateUserFromToken = async (payload: AuthTokenPayload) => {
 
       if (Object.keys(updates).length > 0) {
         user = await User.findByIdAndUpdate(user._id, updates, {
-          new: true,
+          returnDocument: 'after',
         }).exec()
       }
       return user

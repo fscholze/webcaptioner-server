@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose'
+import { Schema, Types, model } from 'mongoose'
 import { IAudioRecord } from './audio-record'
 
 export enum UserRole {
@@ -13,7 +13,7 @@ export interface IUser {
   password?: string
   keycloakId?: string
   role: UserRole
-  audioRecords: IAudioRecord[]
+  audioRecords: (Types.ObjectId | IAudioRecord)[]
 }
 
 const userSchema = new Schema<IUser>(

@@ -29,7 +29,7 @@ export const SotraParamsSchema = z
       )
     ) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'LibreTranslate only supports target languages: en, pl',
         path: ['targetLanguage'],
       })
@@ -42,7 +42,7 @@ export const SotraParamsSchema = z
       )
     ) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Sotra models only support target languages: de, hsb, cs, dsb',
         path: ['targetLanguage'],
       })
@@ -105,7 +105,7 @@ const processSotraTranslation = async (
           },
         },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ).exec()
 
     const newOriginalRecord = updatedRecord?.originalText.at(-1)

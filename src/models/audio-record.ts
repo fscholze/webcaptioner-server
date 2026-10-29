@@ -1,4 +1,4 @@
-import { Schema, model, CallbackError } from 'mongoose'
+import { Schema, Types, model } from 'mongoose'
 import { IUser } from './user'
 
 const generateToken = (): string => {
@@ -15,7 +15,7 @@ export interface IAudioRecord {
   title: string
   originalText: AudioText[]
   translatedText: AudioText[]
-  owner: IUser
+  owner?: Types.ObjectId | IUser
   token: string
   speakerId: string | null
 }
@@ -72,34 +72,27 @@ const audioRecordSchema = new Schema<IAudioRecord>(
 )
 
 // Pre-save hook to ensure token uniqueness
-audioRecordSchema.pre('save', async function (this: any, next) {
-  if (!this.isModified('token')) return next()
+// (Mongoose 9: async pre hooks no longer receive `next`; throw to abort.)
+audioRecordSchema.pre('save', async function (this: any) {
+  if (!this.isModified('token')) return
 
   let isUnique = false
   let attempts = 0
   const maxAttempts = 10
 
   while (!isUnique && attempts < maxAttempts) {
-    try {
-      const existingRecord = await AudioRecord.findOne({ token: this.token })
-      if (!existingRecord) {
-        isUnique = true
-      } else {
-        this.token = generateToken()
-      }
-    } catch (error) {
-      return next(error as CallbackError)
+    const existingRecord = await AudioRecord.findOne({ token: this.token })
+    if (!existingRecord) {
+      isUnique = true
+    } else {
+      this.token = generateToken()
     }
     attempts++
   }
 
   if (!isUnique) {
-    return next(
-      new Error('Could not generate unique token after multiple attempts'),
-    )
+    throw new Error('Could not generate unique token after multiple attempts')
   }
-
-  next()
 })
 
 export const AudioRecord = model<IAudioRecord>('AudioRecord', audioRecordSchema)
