@@ -2,8 +2,10 @@ import { Request, Response } from 'express'
 import { User } from '../models/user'
 import { createToken, verifyPassword } from '../helper/auth'
 import {
+  endKeycloakSession,
   exchangeAuthorizationCode,
   getKeycloakPublicConfig,
+  buildKeycloakLogoutUrl,
   isAllowedCallbackUri,
   isKeycloakConfigured,
   refreshUserToken,
@@ -62,8 +64,18 @@ export const keycloakCallback = async (req: Request, res: Response) => {
     )
     const verified = await verifyKeycloakToken(tokens.access_token)
     if (!verified) {
+      await endKeycloakSession(tokens.refresh_token)
+      const loginPage = new URL(redirectUri)
+      loginPage.pathname = '/authentication/login'
+      loginPage.search = ''
+      loginPage.hash = ''
+      const group = process.env.KEYCLOAK_REQUIRED_GROUP?.trim() || 'webcaptioner'
       return res.status(403).json({
-        message: 'Not a member of the required group.',
+        message: `Du bist nicht in der Gruppe ${group}.`,
+        logoutUrl: buildKeycloakLogoutUrl(
+          `${loginPage.origin}${loginPage.pathname}`,
+          tokens.id_token,
+        ),
       })
     }
     return res.json({

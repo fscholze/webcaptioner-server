@@ -79,7 +79,6 @@ export const verifyKeycloakToken = async (
       algorithms: ['RS256'],
       issuer: getIssuer(),
     }) as KeycloakTokenPayload
-
     if (!isMemberOfRequiredGroup(verified.groups)) return null
 
     return verified
@@ -93,6 +92,18 @@ export interface KeycloakTokenResponse {
   refresh_token: string
   expires_in: number
   id_token?: string
+}
+
+export const buildKeycloakLogoutUrl = (
+  postLogoutRedirectUri: string,
+  idToken?: string,
+) => {
+  const params = new URLSearchParams({
+    client_id: process.env.KEYCLOAK_CLIENT_ID ?? '',
+    post_logout_redirect_uri: postLogoutRedirectUri,
+  })
+  if (idToken) params.set('id_token_hint', idToken)
+  return `${getIssuer()}/protocol/openid-connect/logout?${params}`
 }
 
 export const getKeycloakPublicConfig = () => {
@@ -186,3 +197,26 @@ export const refreshUserToken = (refreshToken: string) =>
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
   })
+
+export const endKeycloakSession = async (refreshToken?: string) => {
+  const clientId = process.env.KEYCLOAK_CLIENT_ID
+  const clientSecret = process.env.KEYCLOAK_CLIENT_SECRET
+  if (!clientId || !clientSecret || !refreshToken) return
+
+  try {
+    await axios.post(
+      `${getIssuer()}/protocol/openid-connect/logout`,
+      new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        auth: { username: clientId, password: clientSecret },
+      },
+    )
+  } catch {
+    // The browser logout still removes the Keycloak cookie.
+  }
+}
