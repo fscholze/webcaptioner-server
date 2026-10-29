@@ -51,6 +51,64 @@ export const SotraParamsSchema = z
 
 type SotraParams = z.infer<typeof SotraParamsSchema>
 
+const TRANSLATION_TEXT_KEYS = [
+  'translation',
+  'marked_translation',
+  'translatedText',
+  'translated_text',
+  'text',
+  'plain',
+  'output',
+  'output_html',
+] as const
+
+const readTranslationText = (value: unknown, depth = 0): string => {
+  if (depth > 5 || value == null) return ''
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return ''
+    if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) return ''
+    return trimmed
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => readTranslationText(item, depth + 1))
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    for (const key of TRANSLATION_TEXT_KEYS) {
+      if (record[key] == null) continue
+      const extracted = readTranslationText(record[key], depth + 1)
+      if (extracted) return extracted
+    }
+  }
+
+  return ''
+}
+
+const sendTranslationError = (response: Response, error: any) => {
+  const upstream = error?.response?.data
+  const message =
+    readTranslationText(upstream?.message) ||
+    readTranslationText(upstream?.errormsg) ||
+    readTranslationText(upstream?.error) ||
+    (typeof error?.message === 'string' ? error.message : '') ||
+    'Translation failed'
+
+  console.error('Translation error:', message)
+  return response.status(502).json({ message })
+}
+
 type SotraResponse = {
   translation: string
   model: string
@@ -217,10 +275,7 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
           'libretranslate',
         ),
       )
-      .catch(error => {
-        console.error('LibreTranslate error: ', error.message)
-        return response.status(200).send(error.response?.data ?? 'Error')
-      })
+      .catch(error => sendTranslationError(response, error))
   }
 
   const data = JSON.stringify({
@@ -246,20 +301,22 @@ export const translateViaSotra = (params: SotraParams, response: Response) => {
   return axios
     .request(config)
     .then(async resp => {
-      const translation =
+      const translation = readTranslationText(
         params.model === 'ctranslate'
-          ? resp.data.marked_translation.join(' ')
-          : resp.data.translation
-
-      return processSotraTranslation(
-        params,
-        response,
-        translation,
-        resp.data.model,
+          ? (resp.data?.marked_translation ?? resp.data?.translation)
+          : (resp.data?.translation ?? resp.data?.marked_translation),
       )
+
+      if (!translation) {
+        return response
+          .status(502)
+          .json({ message: 'Sotra returned no translation text' })
+      }
+
+      const model =
+        typeof resp.data?.model === 'string' ? resp.data.model : params.model
+
+      return processSotraTranslation(params, response, translation, model)
     })
-    .catch(error => {
-      console.error('Sotra error: ', error.message)
-      return response.status(200).send(error.response?.data ?? 'Error')
-    })
+    .catch(error => sendTranslationError(response, error))
 }
